@@ -1,0 +1,190 @@
+---
+title: "Template API: Named Inline Markup Substitution Strings"
+description: "Define named inline templates with Tea's Template API — string substitutions, function-driven dynamic output, and random selection from arrays."
+---
+
+The `Template` API lets you define named text substitutions, called **templates**, that can be dropped into any passage using the `?name` markup syntax. A template can be a static string, a function that returns a string, or an array of either — in which case one member is chosen at random each time the template is referenced. Templates are ideal for reusable flavor text, procedural descriptions, or name variations.
+
+<Note>
+  Template names must start with a letter from the basic Latin alphabet and may be followed by letters, digits, underscores, or hyphens. They are referenced in passage markup as `?templateName` (with a leading question mark).
+</Note>
+
+---
+
+## `Template.size` → `number`
+
+The number of templates currently registered.
+
+```js
+if (Template.size === 0) {
+  // no templates have been defined yet
+}
+```
+
+---
+
+## `Template.add(name, definition)`
+
+Registers one or more new templates.
+
+<ParamField path="name" type="string | Array<string>" required>
+  Name, or array of names, to register. Must start with a basic Latin letter, optionally followed by letters, digits, underscores, or hyphens.
+</ParamField>
+
+<ParamField path="definition" type="Function | string | Array<Function | string>" required>
+  The template definition. May be:
+  - A **string** — output verbatim each time (may contain markup).
+  - A **function** — called with no arguments, `this` set to a context object with a `name` property; must return a string.
+  - An **array** of strings and/or functions — one member is chosen at random on each reference.
+</ParamField>
+
+### String templates
+
+A string template is output as-is every time it is referenced. The string may itself contain wiki markup.
+
+```js
+/* ?nolf → "No One Lives Forever" */
+Template.add('nolf', 'No One Lives Forever');
+```
+
+### Function templates
+
+A function template is called each time the template is referenced. It receives a context object as `this` with a single `name` property (the template's registered name) and must return a string.
+
+```js
+/* ?yolo → randomly "YOLO" or "You Only Live Once" */
+Template.add('yolo', function () {
+  return either('YOLO', 'You Only Live Once');
+});
+```
+
+Using the context object to produce different output per name:
+
+```js
+/* ?color → "red", "green", or "blue"
+   ?Color → "Red", "Green", or "Blue" */
+Template.add(['color', 'Color'], function () {
+  var color = either('red', 'green', 'blue');
+  return this.name === 'Color' ? color.toUpperFirst() : color;
+});
+```
+
+### Array templates
+
+An array template randomly selects one of its members (string or function) each time it is referenced.
+
+```js
+/* ?alsoYolo → randomly "YOLO" or "You Only Live Once" */
+Template.add('alsoYolo', ['YOLO', 'You Only Live Once']);
+
+/* ?cmyk → randomly one of the four CMYK colours */
+Template.add('cmyk', [
+  'Cyan',
+  function () {
+    return either('Magenta', 'Yellow');
+  },
+  'Black'
+]);
+```
+
+---
+
+## `Template.delete(name)`
+
+Removes one or more registered templates.
+
+<ParamField path="name" type="string | Array<string>" required>
+  Name, or array of names, of the template(s) to remove.
+</ParamField>
+
+```js
+/* Remove a single template */
+Template.delete('yolo');
+
+/* Remove multiple templates */
+Template.delete(['yolo', 'nolf']);
+```
+
+---
+
+## `Template.get(name)` → `Function | string | Array<Function | string> | null`
+
+Returns the definition for the named template, or `null` if no template with that name exists.
+
+<ParamField path="name" type="string" required>
+  Name of the template to retrieve.
+</ParamField>
+
+```js
+var def = Template.get('yolo');
+if (def !== null) {
+  console.log('yolo definition:', def);
+}
+```
+
+---
+
+## `Template.has(name)` → `boolean`
+
+Returns `true` if a template with the given name is registered.
+
+<ParamField path="name" type="string" required>
+  Name of the template to check.
+</ParamField>
+
+```js
+if (Template.has('yolo')) {
+  // the ?yolo template exists
+}
+```
+
+---
+
+## Using templates in passage markup
+
+Reference a template in any passage by prefixing its name with `?`:
+
+```
+The hero drew their ?weapon and faced the ?enemy.
+```
+
+If `?weapon` and `?enemy` are registered templates, Tea substitutes them inline wherever they appear.
+
+<Tip>
+  Because array templates pick randomly on each reference, placing the same `?name` multiple times in a passage can produce different results each time — useful for varied flavor text without repetitive `<<either>>` calls.
+</Tip>
+
+---
+
+## Practical example: character description templates
+
+```js
+// === Story JavaScript ===
+
+// Static template
+Template.add('gameName', 'Echoes of the Void');
+
+// Function template — picks a random hair color
+Template.add('hairColor', function () {
+  return either('auburn', 'silver', 'obsidian', 'ash-blond');
+});
+
+// Array template — random descriptive phrase
+Template.add('skyDesc', [
+  'a bruised violet sky',
+  'clouds the color of old pewter',
+  function () {
+    return 'a sky as ' + either('pale', 'dark') + ' as forgotten dreams';
+  }
+]);
+```
+
+Passage text:
+
+```
+Welcome to ?gameName.
+
+Your guide had ?hairColor hair and stood beneath ?skyDesc.
+```
+
+Each time the passage renders, `?hairColor` and `?skyDesc` resolve to fresh random values.

@@ -1,0 +1,369 @@
+---
+title: "AudioTrack & AudioRunner API — Tea Audio Control"
+description: "Full method reference for Tea's AudioTrack prototype and the AudioRunner multi-track proxy returned by SimpleAudio.select() for bulk control."
+---
+
+An `AudioTrack` encapsulates a single audio resource and exposes a consistent interface for playback control, volume management, loop/mute state, fade transitions, and event handling. You obtain an `AudioTrack` instance via [`SimpleAudio.tracks.get()`](/api/simpleaudio#simpleau-diotracksgettrackid). Every method that changes state returns the `AudioTrack` itself, enabling method chaining.
+
+---
+
+## AudioRunner
+
+When you call [`SimpleAudio.select(selector)`](/api/simpleaudio#simpleaudioselectselector) you get back an **`AudioRunner`** rather than a single `AudioTrack`. The `AudioRunner` exposes the exact same method surface documented below, but applies every operation to all matched tracks at once. You can chain calls on it just as you would on an individual track.
+
+```js
+// Set volume and begin playing all tracks in the ":bgm" group.
+SimpleAudio.select(":bgm").volume(0.8).play();
+```
+
+---
+
+## Playback methods
+
+### `<AudioTrack>.play()` → `Promise`
+
+Begins playback of the track. Returns a `Promise` that resolves once playback starts, or rejects with an error on failure (e.g., autoplay policy blocked the request).
+
+```js
+// Basic usage.
+aTrack.play();
+
+// Using the returned Promise.
+aTrack.play()
+  .then(() => { console.log('Playing.'); })
+  .catch((problem) => { console.warn('Playback problem:', problem); });
+```
+
+---
+
+### `<AudioTrack>.playWhenAllowed()`
+
+Begins playback of the track immediately if allowed, or queues it to begin as soon as the player next interacts with the document. Use this instead of `play()` when autoplay restrictions may apply.
+
+```js
+aTrack.playWhenAllowed();
+```
+
+---
+
+### `<AudioTrack>.pause()`
+
+Pauses playback of the track at the current position.
+
+```js
+aTrack.pause();
+```
+
+---
+
+### `<AudioTrack>.stop()`
+
+Stops playback of the track and resets the playback position to the beginning.
+
+```js
+aTrack.stop();
+```
+
+---
+
+### `<AudioTrack>.load()`
+
+Pauses playback and, if the track is not already loading, drops any buffered data and restarts loading from source.
+
+<Warning>
+Do not call this unnecessarily for network-hosted audio — it forces the player's browser to re-download the source.
+</Warning>
+
+```js
+aTrack.load();
+```
+
+---
+
+### `<AudioTrack>.unload()`
+
+Stops playback and forces the track to drop all buffered data. Playback cannot resume until the track is reloaded.
+
+<Note>
+Once unloaded, `play()` will not work until `load()` has been called again and data has buffered.
+</Note>
+
+```js
+aTrack.unload();
+```
+
+---
+
+## Fade methods
+
+### `<AudioTrack>.fade(duration, toVol [, fromVol])` → `Promise`
+
+Starts playback and fades the track from an optional starting volume to a destination volume over the given number of seconds. Returns a `Promise` that resolves when the fade completes normally.
+
+<Note>
+When `Config.audio.pauseOnFadeToZero` is `true` (the default), tracks faded to `0` volume are automatically paused.
+</Note>
+
+<ParamField path="duration" type="number" required>
+  Number of seconds the fade should take.
+</ParamField>
+
+<ParamField path="toVol" type="number" required>
+  Destination volume level (0–1).
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume level (0–1). Defaults to the track's current volume.
+</ParamField>
+
+```js
+// Fade from volume 0 to 1 over 6 seconds.
+aTrack.fade(6, 1, 0);
+```
+
+---
+
+### `<AudioTrack>.fadeIn([duration [, fromVol]])` → `Promise`
+
+Starts playback and fades the track up to `1` (loudest) over the given number of seconds.
+
+<ParamField path="duration" type="number" required>
+  Number of seconds for the fade.
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume. Defaults to the track's current volume.
+</ParamField>
+
+```js
+// Fade in from volume 0 over 5 seconds.
+aTrack.fadeIn(5, 0);
+```
+
+---
+
+### `<AudioTrack>.fadeOut([duration [, fromVol]])` → `Promise`
+
+Starts playback and fades the track down to `0` (silent) over the given number of seconds.
+
+<ParamField path="duration" type="number" required>
+  Number of seconds for the fade.
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume. Defaults to the track's current volume.
+</ParamField>
+
+```js
+// Fade out from volume 1 over 8 seconds.
+aTrack.fadeOut(8, 1);
+```
+
+---
+
+### `<AudioTrack>.fadeStop()`
+
+Interrupts an in-progress fade immediately. The volume level is left wherever it was when the fade was stopped.
+
+```js
+aTrack.fadeStop();
+```
+
+---
+
+## State methods
+
+These methods get or set track state. When used as setters they return the `AudioTrack` instance for chaining.
+
+### `<AudioTrack>.volume([level])` → `number` | `AudioTrack`
+
+Gets or sets the track's volume level (default: `1`).
+
+<ParamField path="level" type="number" optional>
+  Volume level to set (0–1).
+</ParamField>
+
+```js
+var vol = aTrack.volume();     // get
+aTrack.volume(0.75);           // set to 75%
+```
+
+---
+
+### `<AudioTrack>.mute([state])` → `boolean` | `AudioTrack`
+
+Gets or sets the track's mute state (default: `false`).
+
+<ParamField path="state" type="boolean" optional>
+  `true` to mute, `false` to unmute.
+</ParamField>
+
+```js
+var muted = aTrack.mute();    // get
+aTrack.mute(true);             // mute
+aTrack.mute(false);            // unmute
+```
+
+---
+
+### `<AudioTrack>.loop([state])` → `boolean` | `AudioTrack`
+
+Gets or sets whether the track repeats after it ends (default: `false`).
+
+<ParamField path="state" type="boolean" optional>
+  `true` to loop, `false` to play once.
+</ParamField>
+
+```js
+var looped = aTrack.loop();   // get
+aTrack.loop(true);             // enable looping
+aTrack.loop(false);            // disable looping
+```
+
+---
+
+### `<AudioTrack>.time([seconds])` → `number` | `AudioTrack`
+
+Gets or sets the current playback position in seconds.
+
+<ParamField path="seconds" type="number" optional>
+  The position to seek to. Valid range is `0` to the track's total duration.
+</ParamField>
+
+```js
+var pos = aTrack.time();                        // get current position
+aTrack.time(30);                                 // seek to 30 s from start
+aTrack.time(aTrack.duration() - 30);             // seek to 30 s from end
+```
+
+---
+
+### `<AudioTrack>.duration()` → `number`
+
+Returns the track's total playtime in seconds. Returns `Infinity` for a stream, or `NaN` if metadata has not yet loaded.
+
+```js
+var totalSeconds = aTrack.duration();
+```
+
+---
+
+### `<AudioTrack>.remaining()` → `number`
+
+Returns how many seconds remain until the end of the track. Returns `Infinity` for a stream, or `NaN` if metadata is unavailable.
+
+```js
+var secondsLeft = aTrack.remaining();
+```
+
+---
+
+### `<AudioTrack>.clone()` → `AudioTrack`
+
+Returns a new independent copy of the track with its own audio element and state. Changes to the clone do not affect the original.
+
+```js
+var copy = aTrack.clone();
+```
+
+---
+
+## State query methods
+
+All state-query methods return a `boolean` and take no arguments.
+
+<AccordionGroup>
+  <Accordion title="Load state">
+    | Method | Returns `true` when… |
+    |---|---|
+    | `hasData()` | Enough data has loaded to play through without interruption (browser estimate). |
+    | `hasMetadata()` | At least the track's metadata (duration, dimensions, etc.) has loaded. |
+    | `hasSomeData()` | At least some audio data has loaded. `hasData()` is generally more useful. |
+    | `hasNoData()` | No data has been loaded at all. |
+    | `hasSource()` | At least one valid source was registered. |
+    | `isLoading()` | The track is actively loading data. |
+    | `isUnloaded()` | The track's sources have been unloaded. |
+
+    ```js
+    if (aTrack.hasData()) {
+      aTrack.play();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Playback state">
+    | Method | Returns `true` when… |
+    |---|---|
+    | `isPlaying()` | The track is actively playing. |
+    | `isPaused()` | Playback has been paused. |
+    | `isStopped()` | Playback has been stopped. |
+    | `isEnded()` | The track played to its end without looping. |
+    | `isSeeking()` | The track is currently seeking to a new position. |
+    | `isFading()` | A fade transition is in progress. |
+    | `isFailed()` | An error occurred during loading or playback. |
+    | `isUnavailable()` | The track cannot play (no valid source, not loaded, or error). |
+
+    ```js
+    if (aTrack.isPlaying()) {
+      aTrack.pause();
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Event methods
+
+These are thin wrappers over jQuery's `.on()`, `.one()`, and `.off()` applied to the underlying audio element. They return the `AudioTrack` instance for chaining.
+
+<Warning>
+Tea uses events internally. Always use a custom namespace (e.g., `.myGame`) when attaching and removing your own handlers to avoid conflicts.
+</Warning>
+
+### `<AudioTrack>.on(events, handler)` → `AudioTrack`
+
+Attaches a persistent event handler to the track.
+
+```js
+aTrack.on('ended.myGame', () => {
+  // Track finished playing.
+});
+```
+
+---
+
+### `<AudioTrack>.one(events, handler)` → `AudioTrack`
+
+Attaches a single-use event handler that removes itself after firing once.
+
+```js
+aTrack.one('ended.myGame', () => {
+  // Fires only the first time the track ends.
+});
+```
+
+---
+
+### `<AudioTrack>.off(events [, handler])` → `AudioTrack`
+
+Removes one or all event handlers from the track.
+
+```js
+// Remove all handlers in the ".myGame" namespace for "ended".
+aTrack.off('ended.myGame');
+```
+
+---
+
+## Audio events
+
+The following events fire on track elements and can be listened to via `on()` / `one()`.
+
+| Event | Fires when… |
+|---|---|
+| `:faded` | A fade completes normally. |
+| `:fading` | A fade starts. |
+| `:stopped` | Playback is stopped via `.stop()`. |
+
+See the [Events reference](/api/events#simpleaudio-events) for full details.

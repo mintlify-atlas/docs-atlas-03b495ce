@@ -1,0 +1,224 @@
+---
+title: "UIBar API: Show, hide, stow, and destroy the sidebar"
+description: "Destroy, hide, show, stow, and unstow the Tea sidebar UI bar, and check its current hidden or stowed state from JavaScript at runtime."
+---
+
+The `UIBar` API gives you programmatic control over the UI bar—the collapsible sidebar that Tea renders by default on the left side of every story. It contains the story title, navigation history buttons, and the main menu. You may want to hide or stow it on specific passages (e.g., title screens, cutscenes, or puzzle passages where the sidebar would be distracting), or remove it entirely when using a custom `StoryInterface`.
+
+<Note>
+Most `UIBar` methods return a reference to the `UIBar` object itself, allowing you to chain multiple calls together.
+</Note>
+
+---
+
+## UIBar.destroy()
+
+Completely removes the UI bar from the page, including all of its associated styles and event handlers. This operation cannot be undone.
+
+```
+UIBar.destroy()
+```
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+<Warning>
+`UIBar.destroy()` is permanent. If you need to temporarily remove the UI bar, use `UIBar.hide()` or `UIBar.stow()` instead. Consider using the `StoryInterface` special passage if you want a fully custom layout from the start.
+</Warning>
+
+```js
+UIBar.destroy();
+```
+
+---
+
+## UIBar.hide()
+
+Hides the UI bar element. Returns the `UIBar` object for chaining.
+
+```
+UIBar.hide()
+```
+
+<ResponseField name="returns" type="UIBar">
+  The `UIBar` object, for method chaining.
+</ResponseField>
+
+<Note>
+Hiding the UI bar does not reclaim the horizontal space reserved for it. If you also want to reclaim that space, chain a call to `UIBar.stow()`. Alternatively, if you want the UI bar gone permanently, use `UIBar.destroy()`.
+</Note>
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```js
+    UIBar.hide();
+    ```
+  </Tab>
+  <Tab title="Hide and stow">
+    ```js
+    UIBar.hide().stow();
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## UIBar.isHidden()
+
+Returns whether the UI bar is currently hidden.
+
+```
+UIBar.isHidden()
+```
+
+<ResponseField name="returns" type="boolean">
+  `true` if the UI bar is hidden, `false` otherwise.
+</ResponseField>
+
+```js
+if (UIBar.isHidden()) {
+  /* code to execute if the UI bar is hidden… */
+}
+
+if (!UIBar.isHidden()) {
+  /* code to execute if the UI bar is not hidden… */
+}
+```
+
+---
+
+## UIBar.isStowed()
+
+Returns whether the UI bar is currently stowed.
+
+```
+UIBar.isStowed()
+```
+
+<ResponseField name="returns" type="boolean">
+  `true` if the UI bar is stowed, `false` otherwise.
+</ResponseField>
+
+```js
+if (UIBar.isStowed()) {
+  /* code to execute if the UI bar is stowed… */
+}
+
+if (!UIBar.isStowed()) {
+  /* code to execute if the UI bar is not stowed… */
+}
+```
+
+---
+
+## UIBar.show()
+
+Shows the UI bar. Returns the `UIBar` object for chaining.
+
+```
+UIBar.show()
+```
+
+<ResponseField name="returns" type="UIBar">
+  The `UIBar` object, for method chaining.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```js
+    UIBar.show();
+    ```
+  </Tab>
+  <Tab title="Unstow and show">
+    ```js
+    UIBar.unstow().show();
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## UIBar.stow()
+
+Stows the UI bar so that it takes up minimal space (collapsed to the edge of the viewport). Returns the `UIBar` object for chaining.
+
+```
+UIBar.stow([noAnimation])
+```
+
+<ParamField path="noAnimation" type="boolean">
+  When `true`, skips the default collapse animation and stows the bar instantly.
+</ParamField>
+
+<ResponseField name="returns" type="UIBar">
+  The `UIBar` object, for method chaining.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```js
+    UIBar.stow();
+    ```
+  </Tab>
+  <Tab title="Without animation">
+    ```js
+    UIBar.stow(true);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## UIBar.unstow()
+
+Unstows the UI bar, expanding it back to its full size so it is fully accessible again. Returns the `UIBar` object for chaining.
+
+```
+UIBar.unstow([noAnimation])
+```
+
+<ParamField path="noAnimation" type="boolean">
+  When `true`, skips the default expand animation and unstows the bar instantly.
+</ParamField>
+
+<ResponseField name="returns" type="UIBar">
+  The `UIBar` object, for method chaining.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```js
+    UIBar.unstow();
+    ```
+  </Tab>
+  <Tab title="Without animation">
+    ```js
+    UIBar.unstow(true);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Chaining example
+
+Because `hide()`, `show()`, `stow()`, and `unstow()` all return the `UIBar` object, you can chain calls to perform multiple operations at once.
+
+```js
+// Stow the UI bar immediately on the title screen, no animation.
+UIBar.stow(true).hide();
+
+// Later, when entering gameplay, restore it.
+UIBar.unstow().show();
+```
+
+<Accordion title="Hide vs. stow vs. destroy">
+  | Method | Visual result | Recoverable | Reclaims space |
+  |---|---|---|---|
+  | `UIBar.hide()` | Bar invisible | Yes | No |
+  | `UIBar.stow()` | Bar collapsed to edge | Yes | Yes |
+  | `UIBar.destroy()` | Bar removed from DOM | No | Yes |
+
+  Use `hide()` when you want the bar invisible but still occupying its layout space. Use `stow()` when you want the bar collapsed but togglable by the player. Use `destroy()` when building a fully custom interface that has no use for the default sidebar.
+</Accordion>

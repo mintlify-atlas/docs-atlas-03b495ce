@@ -1,126 +1,126 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Tea",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#242b2c",
+    "light": "#6a6a6d",
+    "dark": "#ebeaea"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/bbb21190-6987-4c67-9b0d-d149e82e27b6.png",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/pompom454/tea"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/pompom454/tea"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Language",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core/markup",
+              "core/twinescript",
+              "core/special-names"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Macros",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/components",
-              "essentials/reusable-snippets"
+              "macros/overview",
+              "macros/variables-scripting",
+              "macros/display-control",
+              "macros/interactive",
+              "macros/audio",
+              "macros/dom"
             ]
           },
           {
-            "group": "Agent ready",
+            "group": "Guides",
             "pages": [
-              "agent-ready/prompt",
-              "agent-ready/visibility",
-              "agent-ready/contextual",
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/state-and-saving",
+              "guides/audio",
+              "guides/custom-macros",
+              "guides/localization",
+              "guides/test-mode",
+              "guides/typescript",
+              "guides/migration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core APIs",
             "pages": [
-              "api-reference/introduction"
+              "api/config",
+              "api/engine",
+              "api/state",
+              "api/story",
+              "api/passage"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "UI & Interaction",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/ui",
+              "api/uibar",
+              "api/dialog",
+              "api/fullscreen",
+              "api/loadscreen"
+            ]
+          },
+          {
+            "group": "Saves & Settings",
+            "pages": [
+              "api/save",
+              "api/setting"
+            ]
+          },
+          {
+            "group": "Macros & Scripting",
+            "pages": [
+              "api/macro",
+              "api/macrocontext",
+              "api/template"
+            ]
+          },
+          {
+            "group": "Audio",
+            "pages": [
+              "api/simpleaudio",
+              "api/audiotrack",
+              "api/audiolist"
+            ]
+          },
+          {
+            "group": "Functions & Methods",
+            "pages": [
+              "api/functions",
+              "api/methods",
+              "api/events"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

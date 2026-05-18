@@ -1,0 +1,117 @@
+---
+title: "LoadScreen API: Lock and unlock the loading screen"
+description: "Acquire and release loading screen locks in Tea to keep the loading screen visible while async resources finish loading before story start."
+---
+
+The `LoadScreen` API lets you keep Tea's loading screen visible until your own asynchronous work is complete. Tea uses a lock-based system: any code that needs to delay story startup can acquire a lock, which forces the loading screen to remain displayed. When the work is finished, the lock is released. The loading screen hides automatically once all active locks have been released.
+
+This is useful when your story depends on resources that take unpredictable amounts of time to load—for example, fetching data from an external API, preloading audio via the Web Audio API, or waiting for a `Promise`-based library to initialize.
+
+<Note>
+If you only need to add a fixed delay to hide a flash of unstyled content (FOUC), you do not need this API. Use the `Config.loadDelay` setting instead, which accepts a delay in milliseconds.
+</Note>
+
+---
+
+## LoadScreen.lock()
+
+Acquires a loading screen lock. If the loading screen is not already visible, this also displays it.
+
+```
+LoadScreen.lock()
+```
+
+<ResponseField name="returns" type="number">
+  An integer lock ID. Store this value and pass it to `LoadScreen.unlock()` when your work is complete.
+</ResponseField>
+
+```js
+// Acquire a lock and store its ID.
+var lockId = LoadScreen.lock();
+```
+
+<Warning>
+If you call `LoadScreen.lock()` and never call `LoadScreen.unlock()` with the returned ID, the loading screen will remain visible indefinitely and the player will never be able to interact with the story.
+</Warning>
+
+---
+
+## LoadScreen.unlock()
+
+Releases a loading screen lock by its ID. If this was the last active lock, the loading screen is hidden and the story proceeds.
+
+```
+LoadScreen.unlock(lockId)
+```
+
+<ParamField path="lockId" type="number" required>
+  The integer lock ID returned by `LoadScreen.lock()`.
+</ParamField>
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+```js
+// Release the lock, allowing the loading screen to hide.
+LoadScreen.unlock(lockId);
+```
+
+---
+
+## The locking pattern
+
+The standard way to use `LoadScreen` is to acquire a lock before starting async work, then release it in the callback or `Promise` resolution handler.
+
+```js
+// Acquire the lock before starting async work.
+var lockId = LoadScreen.lock();
+
+// Perform some async operation.
+fetch('https://example.com/story-data.json')
+  .then(function (response) {
+    return response.json();
+  })
+  .then(function (data) {
+    // Store or process the data…
+    setup.storyData = data;
+  })
+  .finally(function () {
+    // Always release the lock, even if the request failed.
+    LoadScreen.unlock(lockId);
+  });
+```
+
+<Tip>
+Release the lock in a `finally` handler (or equivalent cleanup path) rather than only in a success handler. If you only release the lock on success and the async operation fails, the loading screen stays up permanently.
+</Tip>
+
+---
+
+## Multiple locks
+
+You can hold multiple locks simultaneously. The loading screen stays visible until every lock has been released. This is useful when you have several independent async operations that must all complete before the story starts.
+
+```js
+var lockA = LoadScreen.lock();
+var lockB = LoadScreen.lock();
+
+// Start two independent async operations.
+Promise.all([
+  loadAudio().finally(() => LoadScreen.unlock(lockA)),
+  loadConfig().finally(() => LoadScreen.unlock(lockB))
+]);
+```
+
+<Accordion title="Where to call LoadScreen.lock()">
+  Acquire locks in a `StoryInit` special passage (using a `<<run>>` macro) or in JavaScript added to your story via Twine's Edit Story JavaScript dialog. Locks acquired before Tea initializes the story will prevent the loading screen from dismissing until they are released.
+
+  ```js
+  // In Story JavaScript (runs at startup):
+  var lockId = LoadScreen.lock();
+
+  somethingAsync().finally(function () {
+    LoadScreen.unlock(lockId);
+  });
+  ```
+</Accordion>

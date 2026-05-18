@@ -1,0 +1,369 @@
+---
+title: "Tea Story Format Events — Complete Event Reference"
+description: "Complete reference for all Tea events: Dialog, Navigation, SimpleAudio, System, and type-macro events — when each fires and how to listen for them."
+---
+
+Tea dispatches custom DOM events at specific points during story operation to let your JavaScript code react to what's happening — dialog state changes, passage transitions, audio playback, engine lifecycle, and typewriter-effect macro activity. All events are fired on `document` unless noted otherwise.
+
+Events are represented as objects. Tea events added in v2.37.0+ carry their custom data in an `event.detail` object rather than directly on the event.
+
+<Note>
+For standard browser/DOM events (click, input, etc.) see the [MDN Event reference](https://developer.mozilla.org/en-US/docs/Web/Events).
+</Note>
+
+---
+
+## Dialog events
+
+These events fire during the opening and closing lifecycle of Tea's built-in dialog system. All four events fire from the dialog's body element (`#ui-dialog-body`), so `event.target` refers to that element.
+
+<AccordionGroup>
+
+  <Accordion title=":dialogopening">
+
+    Fired as the **first step** when `Dialog.open()` is called — before the dialog becomes visible. The dialog is still populated with its content at this point, so you can inspect or modify it.
+
+    **Event data:** none (but `event.target` is `#ui-dialog-body`)
+
+    ```js
+    $(document).on(':dialogopening', (ev) => {
+      // Dialog is about to open — content is accessible.
+      console.log('Opening dialog, body:', ev.target);
+    });
+
+    // Single-use handler.
+    $(document).one(':dialogopening', (ev) => { /* ... */ });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":dialogopened">
+
+    Fired as the **last step** when `Dialog.open()` is called — after the dialog is fully visible.
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':dialogopened', (ev) => {
+      // Dialog is now open and visible.
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":dialogclosing">
+
+    Fired as the **first step** when `Dialog.close()` is called — while the dialog is still open and its content is intact. Use this event if you need to read the dialog's title or class list before it is torn down.
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':dialogclosing', (ev) => {
+      // Dialog still has its content here — safe to inspect title/classes.
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":dialogclosed">
+
+    Fired as the **last step** when `Dialog.close()` is called — after the dialog has already been closed and reset.
+
+    <Warning>
+    The dialog has been cleared by the time this event fires. If you need to read the dialog's title or CSS classes, use `:dialogclosing` instead.
+    </Warning>
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':dialogclosed', (ev) => {
+      // Dialog is fully closed and reset.
+    });
+    ```
+
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## Navigation events
+
+Navigation events fire at each stage of passage transition. They are processed in the following order each time the player moves to a new passage:
+
+1. `:passageinit` — before the history state is modified
+2. `:passagestart` — before the passage content is rendered (after `PassageReady`)
+3. `:passagerender` — after rendering (after `PassageFooter`)
+4. `:passagedisplay` — after the passage is shown on screen (after `PassageDone`)
+5. `:uiupdate` — UI sidebar/banner update (also updates `StoryMenu`, `StoryCaption`, etc.)
+6. `:passageend` — at the very end of navigation
+
+All navigation event `detail` objects carry a `passage` property that is a `Passage` API object. Events from step 2 onward also carry a `content` property that is the rendered passage `HTMLElement`.
+
+<AccordionGroup>
+
+  <Accordion title=":passageinit">
+
+    Fired before the modification of the state history. At this point the new passage exists but the history has not yet advanced.
+
+    **`event.detail` properties:**
+    - `passage` (`Passage`) — The incoming passage object.
+
+    ```js
+    $(document).on(':passageinit', (ev) => {
+      console.log('Navigating to:', ev.detail.passage.name);
+      console.log('Tags:', ev.detail.passage.tags);
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":passagestart">
+
+    Fired before the incoming passage is rendered, after `PassageReady` has run. The `content` element exists but is still empty — you can use `.wiki()` to prepend content.
+
+    **`event.detail` properties:**
+    - `content` (`HTMLElement`) — The (currently empty) element that will hold rendered content.
+    - `passage` (`Passage`) — The incoming passage object.
+
+    ```js
+    $(document).on(':passagestart', (ev) => {
+      // Prepend content to every passage.
+      $(ev.detail.content).wiki("//Prologue text//");
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":passagerender">
+
+    Fired after the incoming passage has been fully rendered (TwineScript processed, macros executed), after `PassageFooter` has run. The `content` element holds the complete rendered passage DOM.
+
+    **`event.detail` properties:**
+    - `content` (`HTMLElement`) — The fully rendered passage element.
+    - `passage` (`Passage`) — The incoming passage object.
+
+    ```js
+    $(document).on(':passagerender', (ev) => {
+      // Post-process rendered content.
+      $(ev.detail.content).wiki("//Epilogue text//");
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":passagedisplay">
+
+    Fired after the rendered passage has been displayed (output to the screen) and after `PassageDone` has run.
+
+    **`event.detail` properties:**
+    - `content` (`HTMLElement`) — The displayed passage element.
+    - `passage` (`Passage`) — The incoming passage object.
+
+    ```js
+    $(document).on(':passagedisplay', (ev) => {
+      console.log('Now showing:', ev.detail.passage.name);
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":passageend">
+
+    Fired at the very end of passage navigation, after all other navigation events and UI updates have completed.
+
+    **`event.detail` properties:**
+    - `content` (`HTMLElement`) — The passage element.
+    - `passage` (`Passage`) — The incoming passage object.
+
+    ```js
+    $(document).on(':passageend', (ev) => {
+      // Safe to run cleanup or analytics here.
+    });
+    ```
+
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## SimpleAudio events {#simpleaudio-events}
+
+These events fire on audio track elements and are intended to be listened to via `AudioTrack.on()`, `AudioTrack.one()`, or `AudioRunner.on()` rather than directly on `document`. They have no custom data on the event object.
+
+<Warning>
+Tea uses these events internally. Always use a custom namespace (e.g., `.myGame`) when attaching your own handlers to avoid conflicts with internal listeners.
+</Warning>
+
+<AccordionGroup>
+
+  <Accordion title=":fading">
+
+    Fired on a track element when a fade **starts**.
+
+    **Event data:** none
+
+    ```js
+    // Listen on a single track.
+    aTrack.on(':fading.myGame', (ev) => {
+      console.log('Fade started.');
+    });
+
+    // Listen on multiple tracks via AudioRunner.
+    SimpleAudio.select(":bgm").on(':fading.myGame', (ev) => {
+      console.log('A BGM track started fading.');
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":faded">
+
+    Fired on a track element when a fade **completes normally** (i.e., was not interrupted by `fadeStop()`).
+
+    **Event data:** none
+
+    ```js
+    aTrack.on(':faded.myGame', (ev) => {
+      console.log('Fade completed.');
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":stopped">
+
+    Fired on a track element when playback is **stopped** via `.stop()`, either called directly or as part of another operation (e.g., `SimpleAudio.stop()`).
+
+    **Event data:** none
+
+    <Note>
+    This is distinct from the native `ended` event (which fires when a track plays to completion) and the native `pause` event. See MDN for those events.
+    </Note>
+
+    ```js
+    aTrack.on(':stopped.myGame', (ev) => {
+      console.log('Track was stopped.');
+    });
+
+    SimpleAudio.select(":all").on(':stopped.myGame', (ev) => {
+      console.log('A track was stopped.');
+    });
+    ```
+
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## System events
+
+System events fire once (or at most a few times) during story startup and teardown.
+
+<AccordionGroup>
+
+  <Accordion title=":storyready">
+
+    Fired **once** just before the loading screen is dismissed at story startup. Use this to perform any initialization that must happen after the engine is fully ready but before the player sees the first passage.
+
+    **Event data:** none
+
+    ```js
+    $(document).one(':storyready', (ev) => {
+      // Engine is ready, story is about to begin.
+      console.log('Story ready!');
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":enginerestart">
+
+    Fired **once** just before the page is reloaded when `Engine.restart()` is called. Use this to perform any cleanup needed before the page refreshes.
+
+    **Event data:** none
+
+    ```js
+    $(document).one(':enginerestart', (ev) => {
+      // Save any data that needs to survive the reload.
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":uiupdate">
+
+    Fired each time the built-in UI is updated by `UI.update()`. This happens as step 5 of every passage navigation, after the passage has been displayed. Use this to update custom sidebar elements or other persistent UI.
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':uiupdate', (ev) => {
+      // Refresh a custom stats panel.
+      $('#my-stats').wiki('<<include "StatsPanel">>');
+    });
+    ```
+
+  </Accordion>
+
+</AccordionGroup>
+
+---
+
+## `<<type>>` macro events
+
+These events fire during typewriter-effect typing sequences created by the `<<type>>` macro.
+
+<AccordionGroup>
+
+  <Accordion title=":typingstart">
+
+    Local event fired on the typing wrapper element when the typing of a section **starts**. Bubbles up the DOM tree.
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':typingstart', (ev) => {
+      // A typing section started — ev.target is the wrapper element.
+      console.log('Typing started on:', ev.target);
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":typingstop">
+
+    Local event fired on the typing wrapper element when the typing of a section **stops** (including when skipped by the player). Bubbles up the DOM tree.
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':typingstop', (ev) => {
+      // A typing section stopped or was skipped.
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title=":typingcomplete">
+
+    Global event fired on `document` when **all** `<<type>>` macro invocations within the current passage have finished typing.
+
+    <Note>
+    If additional `<<type>>` macros are injected into the passage after `:typingcomplete` has fired, a new sequence begins and a new `:typingcomplete` event will eventually fire for that sequence.
+    </Note>
+
+    **Event data:** none
+
+    ```js
+    $(document).on(':typingcomplete', (ev) => {
+      // All typewriter text in the passage has finished.
+      console.log('All typing complete.');
+    });
+    ```
+
+  </Accordion>
+
+</AccordionGroup>

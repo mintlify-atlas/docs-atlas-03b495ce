@@ -1,0 +1,258 @@
+---
+title: "TwineScript: Variables, Types, and Operators in Tea"
+description: "How Tea's TwineScript scripting layer works: story vs. temporary variables, supported data types, expressions, and all assignment and comparison operators."
+---
+
+TwineScript is Tea's scripting language — essentially JavaScript with a layer of syntax sugar to make it more approachable for authors who are not JavaScript developers. You write TwineScript inside macros such as `<<set>>`, `<<if>>`, `<<for>>`, and `<<print>>`, and it gives you full access to variables, expressions, and the complete JavaScript standard library.
+
+## Variables
+
+A variable is a named storage location for a value. Tea has two kinds of variables: **story variables** and **temporary variables**.
+
+- **Story variables** (sigil: `$`) are part of the story history and persist for the lifetime of a playthrough session. They are saved and restored along with saves.
+- **Temporary variables** (sigil: `_`) do not enter the story history and only exist for the current moment/turn. They are ideal for loop counters and intermediate calculations.
+
+<Note>
+Temporary variables were added in v2.3.0.
+</Note>
+
+### Variable name rules
+
+| Position | Allowed characters |
+|---|---|
+| First character (after sigil) | `A–Z`, `a–z`, `$`, `_` |
+| Subsequent characters | `A–Z`, `a–z`, `0–9`, `$`, `_` |
+
+```js
+/* Valid story variable names */
+$cash
+$hasKeyCard5
+$met_alice
+$TIMES_POKED_MR_BEAR
+
+/* Valid temporary variable names */
+_i
+_something2
+_some_loop_value
+_COUNT
+```
+
+### Using variables
+
+<AccordionGroup>
+  <Accordion title="Setting variable values">
+    Use the `<<set>>` macro or setter links to assign values to variables.
+
+    ```twee
+    <<set $name to "Elara">>
+    <<set $gold += 50>>
+    [[Buy sword|Market][$gold to $gold - 30]]
+    ```
+  </Accordion>
+  <Accordion title="Printing variable values">
+    Use naked variable markup for simple values, or a print macro for expressions.
+
+    ```twee
+    /* Naked markup — works for simple lookups */
+    Your name is $name and you have $gold gold.
+
+    /* Print macros — needed for expressions and method calls */
+    You have <<= $inventory.length>> items.
+    <<print $name.toUpperCase()>>
+    ```
+  </Accordion>
+  <Accordion title="Branching on variable values">
+    Use `<<if>>` and `<<switch>>` to control story flow based on variable values.
+
+    ```twee
+    <<if $gold gte 30>>
+      You can afford the sword.
+    <<else>>
+      You cannot afford the sword.
+    <</if>>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Other places to store values
+
+In addition to `$` and `_` variables, Tea provides two non-persistent storage locations:
+
+- **`setup`** — an object provided by Tea for storing non-persistent values that should not enter the history (e.g., lookup tables, configuration data).
+- **`window`** — the browser's global object. Properties on `window` become auto-globals, but take care not to overwrite any of its many built-in properties.
+
+## Supported types
+
+The following types may be safely stored in Tea's story and temporary variables.
+
+### Primitive types
+
+- **Boolean** — `true` and `false`
+- **Number** — integers (`42`, `-24`), floating-point (`3.14`, `-17.76`), and special values (`Infinity`, `NaN`)
+- **String** — `"I like pie"`, `'You like pie'`
+- **null**
+- **undefined**
+
+### Object types
+
+- `Array`
+- `Date`
+- `Map`
+- `Set`
+- Generic objects (`{}`)
+
+Any supported object type may contain any other supported primitive or object type.
+
+<Warning>
+The following constructs are **not supported** inside story variables:
+
+- **Circular references** — keep them in `setup` or `window` instead.
+- **Property attributes** (getters/setters) and **symbol properties** — use a class to encapsulate them.
+- **Functions and static methods** — a function's scope cannot be restored from saves, and function behavior is immutable, making storage wasteful. Instance methods of classes are unaffected because they live on the prototype, not in the variable.
+</Warning>
+
+<Note>
+Custom object types (classes) can be made compatible with Tea's serialization by implementing `.clone()` and `.toJSON()` methods. See the Non-generic object types guide for details.
+</Note>
+
+## Expressions
+
+An expression is any unit of code that yields a value when evaluated.
+
+```js
+// Yields: true
+true
+
+// Yields: 1 (on the first turn)
+turns()
+
+// Yields: 4
+2 + 2
+
+// Yields: "22" (string concatenation)
+"2" + "2"
+```
+
+Expressions may have **side effects** — they modify some state as part of their evaluation:
+
+```js
+// Yields: 5; side effect: assigns 5 to $a
+$a = 5
+
+// Yields: 25 (assuming $x is 15); no side effect
+$x + 10
+```
+
+Common expression categories:
+- **Arithmetic** — yields a number, e.g., `42` or `$x + 10`
+- **String** — yields a string, e.g., `"Lulamoon"` or `$first + " " + $last`
+- **Logical** — yields a boolean, e.g., `$health gt 0`
+- **Assignment** — causes a value to be stored, e.g., `$a = 5`
+
+## Operators
+
+### Assignment operators
+
+Use these to store values in variables. TwineScript provides the `to` keyword as a readable alternative to `=`.
+
+<Tabs>
+  <Tab title="TwineScript">
+    | Operator | Description | Example |
+    |---|---|---|
+    | `to` | Assigns the right-hand value to the left-hand variable | `$apples to 6` |
+  </Tab>
+  <Tab title="JavaScript style">
+    | Operator | Description | Example |
+    |---|---|---|
+    | `=` | Assigns the right-hand value | `$apples = 6` |
+    | `+=` | Adds and assigns | `$apples += 1` |
+    | `-=` | Subtracts and assigns | `$apples -= 1` |
+    | `*=` | Multiplies and assigns | `$apples *= 2` |
+    | `/=` | Divides and assigns | `$apples /= 2` |
+    | `%=` | Divides and assigns the remainder | `$apples %= 10` |
+  </Tab>
+</Tabs>
+
+### Conditional (comparison) operators
+
+<Tabs>
+  <Tab title="TwineScript">
+    | Operator | Description | Example |
+    |---|---|---|
+    | `is` | Strictly equal | `$bullets is 6` |
+    | `isnot` | Strictly not equal | `$pie isnot "cherry"` |
+    | `eq` | Equivalent (coercive) — prefer `is` | `$bullets eq 6` |
+    | `neq` | Not equivalent (coercive) — prefer `isnot` | `$pie neq "cherry"` |
+    | `gt` | Greater than | `$cash gt 5` |
+    | `gte` | Greater than or equal to | `$foundStars gte $neededStars` |
+    | `lt` | Less than | `$shoeCount lt ($peopleCount * 2)` |
+    | `lte` | Less than or equal to | `$level lte 30` |
+    | `not` | Logical NOT | `not $hungry` |
+    | `and` | Logical AND | `$age gte 20 and $age lte 30` |
+    | `or` | Logical OR | `$friend is "Sue" or $friend is "Dan"` |
+    | `def` | True if the right side is defined | `def $mushrooms` |
+    | `ndef` | True if the right side is not defined | `ndef $bottlecaps` |
+  </Tab>
+  <Tab title="JavaScript style">
+    | Operator | Description | Example |
+    |---|---|---|
+    | `===` | Strictly equal | `$bullets === 6` |
+    | `!==` | Strictly not equal | `$pie !== "cherry"` |
+    | `==` | Equivalent (coercive) — prefer `===` | `$bullets == 6` |
+    | `!=` | Not equivalent (coercive) — prefer `!==` | `$pie != "cherry"` |
+    | `>` | Greater than | `$cash > 5` |
+    | `>=` | Greater than or equal to | `$foundStars >= $neededStars` |
+    | `<` | Less than | `$shoeCount < ($peopleCount * 2)` |
+    | `<=` | Less than or equal to | `$level <= 30` |
+    | `!` | Logical NOT | `!$hungry` |
+    | `&&` | Logical AND | `$age >= 20 && $age <= 30` |
+    | `\|\|` | Logical OR | `$friend === "Sue" \|\| $friend === "Dan"` |
+  </Tab>
+</Tabs>
+
+<Warning>
+The `def` and `ndef` operators have very low precedence. When mixing them with other operators, always wrap them in parentheses to avoid unexpected evaluation order — e.g., `(def $style) and ($style is "girly")`.
+</Warning>
+
+### Unary operators
+
+Unary operators take a single operand, either before or after them.
+
+```js
+// Postfix increment (operand then operator)
+$i++
+
+// Prefix increment (operator then operand)
+++$x
+
+// Logical NOT — TwineScript style
+not $hasKey
+
+// Logical NOT — JavaScript style
+!$hasKey
+```
+
+## Practical examples
+
+```twee
+/* Initialize variables at story start (in StoryInit) */
+<<set $playerName to "Elara">>
+<<set $gold to 100>>
+<<set $inventory to []>>
+<<set $visited to {}>>
+
+/* Conditional branching */
+<<if $gold gte 50 and not $visited.market>>
+  <<set $visited.market to true>>
+  You enter the market for the first time.
+<<elseif $gold lt 10>>
+  You can barely afford anything here.
+<<else>>
+  The market stalls are familiar by now.
+<</if>>
+
+/* Loop with a temporary variable */
+<<for _i to 0; _i lt $inventory.length; _i++>>
+  Item <<= _i + 1>>: <<= $inventory[_i]>>
+<</for>>
+```

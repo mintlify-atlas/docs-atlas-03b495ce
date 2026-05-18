@@ -1,0 +1,232 @@
+---
+title: "Macro API: Add, Query, and Remove Custom Story Macros"
+description: "Register, inspect, and remove custom Tea macros with the Macro API — includes definition object shape, container macro tags, and handler wiring."
+---
+
+The `Macro` API is the entry point for extending Tea's markup language with your own macros. A macro is a named directive invoked in passage text as `<<macroName ...>>`. Each macro has a **handler function** that runs when Tea's wikifier encounters the macro call, giving you access to its arguments, output element, and (for container macros) its inner content.
+
+<Note>
+  Macro handler functions are called with no arguments. All contextual data is available through the `this` keyword, which is set to a [`MacroContext`](/api/macrocontext) object.
+</Note>
+
+---
+
+## `Macro.add(name, definition)`
+
+Registers one or more new macros. Throws if the name conflicts with an existing macro or child tag, or if the name is syntactically invalid.
+
+<ParamField path="name" type="string | Array<string>" required>
+  Name, or array of names, to register. Names must start with a letter from the basic Latin alphabet and may be followed by letters, digits, underscores, or hyphens.
+</ParamField>
+
+<ParamField path="definition" type="object | string" required>
+  Either a definition object (see below) or the name of an existing macro whose definition should be copied (alias).
+</ParamField>
+
+### Definition object
+
+<ResponseField name="handler" type="Function" required>
+  The macro's main function. Called with `this` set to a [`MacroContext`](/api/macrocontext) object and no arguments.
+</ResponseField>
+
+<ResponseField name="tags" type="null | Array<string>">
+  Makes this a **container macro**. Set to `null` for no child tags (just an opening and closing tag), or an array of child tag name strings. When `tags` is present, `this.payload` inside the handler contains the parsed inner blocks.
+</ResponseField>
+
+<ResponseField name="skipArgs" type="boolean | Array<string>">
+  Disables parsing the argument string into discrete arguments. Set to `true` to affect all tags, or to an array of specific tag names. When skipped, use `this.args.raw` or `this.args.full` instead of `this.args[n]`.
+</ResponseField>
+
+Additional properties may be stored on the definition object for internal bookkeeping.
+
+---
+
+## Examples
+
+<Tabs>
+  <Tab title="Simple macro">
+
+    A self-closing macro that renders a greeting based on its argument:
+
+    ```js
+    Macro.add('greet', {
+      handler : function () {
+        if (this.args.length === 0) {
+          return this.error('no name provided');
+        }
+        jQuery(this.output).wiki(`Hello, ''${this.args[0]}''!`);
+      }
+    });
+    ```
+
+    Usage in a passage:
+
+    ```
+    <<greet "Aria">>
+    ```
+
+    Output: **Hello, Aria!**
+
+  </Tab>
+  <Tab title="Container macro">
+
+    A container macro that conditionally renders its contents:
+
+    ```js
+    Macro.add('if', {
+      skipArgs : true,
+      tags     : ['elseif', 'else'],
+      handler  : function () {
+        try {
+          for (var i = 0, len = this.payload.length; i < len; ++i) {
+            if (
+              this.payload[i].name === 'else' ||
+              !!Scripting.evalJavaScript(this.payload[i].args.full)
+            ) {
+              jQuery(this.output).wiki(this.payload[i].contents);
+              break;
+            }
+          }
+        }
+        catch (ex) {
+          return this.error('bad conditional expression: ' + ex.message);
+        }
+      }
+    });
+    ```
+
+    Usage in a passage:
+
+    ```
+    <<if $score gte 10>>
+      You win!
+    <<else>>
+      Keep trying.
+    <</if>>
+    ```
+
+  </Tab>
+  <Tab title="Macro alias">
+
+    Register `<<say>>` as an alias for an existing `<<print>>` macro:
+
+    ```js
+    Macro.add('say', 'print');
+    ```
+
+  </Tab>
+</Tabs>
+
+---
+
+## `Macro.delete(name)`
+
+Removes one or more registered macros. Silently does nothing for names that do not exist. Throws if the name refers to a child tag (you cannot remove a tag without removing its parent macro first).
+
+<ParamField path="name" type="string | Array<string>" required>
+  Name, or array of names, of the macro(s) to remove.
+</ParamField>
+
+```js
+Macro.delete("greet");
+Macro.delete(["greet", "say"]);
+```
+
+---
+
+## `Macro.get(name)` → `Object | null`
+
+Returns the definition object for the named macro, or `null` if no such macro exists or it has no `handler` function.
+
+<ParamField path="name" type="string" required>
+  Name of the macro to retrieve.
+</ParamField>
+
+```js
+const def = Macro.get("print");
+if (def !== null) {
+  console.log("handler:", def.handler);
+}
+```
+
+---
+
+## `Macro.has(name)` → `boolean`
+
+Returns `true` if a macro with the given name is registered.
+
+<ParamField path="name" type="string" required>
+  Name of the macro to check.
+</ParamField>
+
+```js
+if (Macro.has("print")) {
+  // the built-in <<print>> macro exists
+}
+```
+
+---
+
+## `Macro.tags.get(name)` → `Array<string> | null`
+
+Returns the array of parent macro names that have registered the given tag name as a child tag, or `null` if the tag is not registered.
+
+<ParamField path="name" type="string" required>
+  Name of the child tag to look up.
+</ParamField>
+
+```js
+// For the standard library, returns ["if"]
+const parents = Macro.tags.get("else");
+```
+
+---
+
+## `Macro.tags.has(name)` → `boolean`
+
+Returns `true` if the given child tag name is registered.
+
+<ParamField path="name" type="string" required>
+  Name of the child tag to check.
+</ParamField>
+
+```js
+if (Macro.tags.has("else")) {
+  // the <<else>> tag is registered
+}
+```
+
+---
+
+## Building a complete custom macro
+
+The example below shows a reusable `<<tooltip>>` macro that wraps text in a span and attaches a hover tooltip:
+
+```js
+Macro.add('tooltip', {
+  tags : null, // container macro, no child tags
+  handler : function () {
+    if (this.args.length === 0) {
+      return this.error('tooltip text is required as the first argument');
+    }
+
+    var $wrapper = jQuery('<span>')
+      .attr('title', this.args[0])
+      .addClass('macro-tooltip');
+
+    // Wikify the contents into the wrapper
+    jQuery(this.output).wiki(this.payload[0].contents);
+    jQuery(this.output).wrapInner($wrapper);
+  }
+});
+```
+
+Usage in a passage:
+
+```
+<<tooltip "This appears on hover">>hover over me<</tooltip>>
+```
+
+<Tip>
+  See the [MacroContext API](/api/macrocontext) for the full list of properties and methods available inside `handler` via `this`.
+</Tip>

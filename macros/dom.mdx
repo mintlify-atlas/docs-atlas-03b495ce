@@ -1,0 +1,249 @@
+---
+title: "DOM Macros: Manipulate Live Page Elements in Tea Story"
+description: "Reference for Tea's DOM macros: addclass, removeclass, toggleclass, append, prepend, replace, copy, and remove using CSS/jQuery selectors with transitions."
+---
+
+DOM macros let you read and modify elements that are already on the page using CSS/jQuery-style selectors. They are the standard way to make targeted, in-place changes to the passage without navigating to a new one.
+
+<Warning>
+DOM macros require their target elements to be **on the page at the time the macro runs**. Because a passage's own elements are still being rendered when the passage executes, you cannot use DOM macros directly in passage text to modify elements in the same passage. Instead, use them inside an interactive macro (`<<link>>`, `<<button>>`), the `<<done>>` macro, or the `PassageDone` special passage.
+</Warning>
+
+---
+
+## Class macros
+
+### `<<addclass selector classNames>>`
+
+Adds one or more space-separated class names to every element matched by the selector.
+
+```twee
+<<addclass "body" "day rain">>   → Add "day" and "rain" to <body>
+<<addclass "#pie" "cherry">>     → Add "cherry" to element with id="pie"
+<<addclass ".joe" "angry">>      → Add "angry" to all elements with class "joe"
+```
+
+<ParamField body="selector" type="string" required>
+  A CSS/jQuery-style selector string targeting one or more elements.
+</ParamField>
+<ParamField body="classNames" type="string" required>
+  One or more space-separated class names to add.
+</ParamField>
+
+---
+
+### `<<removeclass selector [classNames]>>`
+
+Removes one or more class names from matched elements. If no class names are given, **all** classes are removed.
+
+```twee
+<<removeclass "body" "day rain">>  → Remove "day" and "rain" from <body>
+<<removeclass "#pie" "cherry">>    → Remove "cherry" from id="pie"
+<<removeclass ".joe" "angry">>     → Remove "angry" from all .joe elements
+<<removeclass "#begone">>          → Remove ALL classes from id="begone"
+```
+
+<ParamField body="selector" type="string" required>
+  A CSS/jQuery-style selector string.
+</ParamField>
+<ParamField body="classNames" type="string">
+  Optional. Space-separated class names to remove. Omit to remove all classes.
+</ParamField>
+
+---
+
+### `<<toggleclass selector classNames>>`
+
+Toggles class names on matched elements: adds them if absent, removes them if present.
+
+```twee
+<<toggleclass "body" "day rain">>  → Toggle "day" and "rain" on <body>
+<<toggleclass "#pie" "cherry">>    → Toggle "cherry" on id="pie"
+<<toggleclass ".joe" "angry">>     → Toggle "angry" on all .joe elements
+```
+
+<ParamField body="selector" type="string" required>
+  A CSS/jQuery-style selector string.
+</ParamField>
+<ParamField body="classNames" type="string" required>
+  One or more space-separated class names to toggle.
+</ParamField>
+
+---
+
+## Content macros
+
+### `<<append selector [transition|t8n]>> … <</append>>`
+
+Executes its body and **appends** the output to the end of the matched element's existing content.
+
+<Tabs>
+  <Tab title="Without transition">
+    ```twee
+    → Setup
+    I saw a <span id="dog">dog</span>.
+
+    → Append on click
+    <<link "What was it doing?">>
+        <<append "#dog">> chasing a cat<</append>>
+    <</link>>
+
+    → Result after click
+    I saw a <span id="dog">dog chasing a cat</span>.
+    ```
+  </Tab>
+  <Tab title="With transition">
+    ```twee
+    I saw a <span id="dog">dog</span>.
+
+    <<link "What was it doing?">>
+        <<append "#dog" t8n>> chasing a cat<</append>>
+    <</link>>
+
+    → Result (the insertion gets a .macro-append-insert transition wrapper)
+    I saw a <span id="dog">dog<span class="macro-append-insert"> chasing a cat</span></span>.
+    ```
+  </Tab>
+</Tabs>
+
+<ParamField body="selector" type="string" required>
+  A CSS/jQuery-style selector string.
+</ParamField>
+<ParamField body="transition / t8n" type="keyword">
+  Optional. Applies a CSS transition to the incoming content. The inserted content is wrapped in a `<span>` with `macro-append-insert` and `macro-append-in` classes.
+</ParamField>
+
+---
+
+### `<<prepend selector [transition|t8n]>> … <</prepend>>`
+
+Executes its body and **prepends** the output before the beginning of the matched element's existing content.
+
+```twee
+→ Setup
+I saw a <span id="dog">dog</span>.
+
+<<link "How big?">>
+    <<prepend "#dog">>big <</prepend>>
+<</link>>
+
+→ Result after click
+I saw a <span id="dog">big dog</span>.
+
+→ With transition
+<<link "How big?">>
+    <<prepend "#dog" t8n>>big <</prepend>>
+<</link>>
+
+→ Result (transition wrapper gets .macro-prepend-insert)
+I saw a <span id="dog"><span class="macro-prepend-insert">big </span>dog</span>.
+```
+
+---
+
+### `<<replace selector [transition|t8n]>> … <</replace>>`
+
+Executes its body and **replaces** the entire content of the matched element with the output. If the body is empty, the element is emptied (but not removed—use `<<remove>>` to delete the element itself).
+
+```twee
+→ Setup
+I saw a <span id="dog">dog</span>.
+
+<<link "What breed?">>
+    <<replace "#dog">>Catahoula Cur<</replace>>
+<</link>>
+
+→ Result after click
+I saw a <span id="dog">Catahoula Cur</span>.
+
+→ Empty the element without removing it
+<<link "Nothing to see here">>
+    <<replace "#dog">><</replace>>
+<</link>>
+```
+
+---
+
+### `<<copy selector>>`
+
+Outputs a **copy of the content** of the matched element(s) at the current position in the passage. The copy is purely a snapshot of the HTML—interactive elements will generally not function after being copied.
+
+```twee
+I'd like a <span id="snack-source">slice of Key lime pie</span>, please.
+
+I'll have a <span id="snack-dest">breadstick</span>, thanks.
+
+<<link "Have the same">>
+    <<replace "#snack-dest">><<copy "#snack-source">> too<</replace>>
+<</link>>
+
+→ Result after click
+I'd like a <span id="snack-source">slice of Key lime pie</span>, please.
+I'll have a <span id="snack-dest">slice of Key lime pie too</span>, thanks.
+```
+
+<Warning>
+Interactive elements—passage links, interactive macros, etc.—cannot be reliably copied via `<<copy>>`. Copying them usually results in non-functional duplicates.
+</Warning>
+
+---
+
+### `<<remove selector>>`
+
+Removes the matched element(s) from the page entirely.
+
+```twee
+I'd like a <span id="huge-cupcake">humongous </span>cupcake, please.
+
+<<link "Go small">>
+    <<remove "#huge-cupcake">>
+<</link>>
+
+→ Result after click
+I'd like a cupcake, please.
+```
+
+<Note>
+If you want to **empty** an element rather than delete it, use an empty `<<replace>>` instead: `<<replace "#target">><</replace>>`.
+</Note>
+
+---
+
+## Patterns and tips
+
+<AccordionGroup>
+  <Accordion title="Selector reference">
+    DOM macros accept any CSS selector jQuery supports:
+
+    ```twee
+    "#myId"         → element with id="myId"
+    ".myClass"      → all elements with class="myClass"
+    "span.note"     → all <span> elements with class="note"
+    "body"          → the <body> element
+    ".outer .inner" → .inner elements inside .outer
+    ```
+  </Accordion>
+  <Accordion title="Using <<done>> for passage-local DOM changes">
+    ```twee
+    @@#reveal;Click the link below.@@
+
+    <<done>>
+        <<replace "#reveal">>The passage has finished rendering.<</replace>>
+    <</done>>
+    ```
+
+    `<<done>>` waits until the passage is fully on the page before running, which makes it safe to target elements from the current passage.
+  </Accordion>
+  <Accordion title="Toggling themes with <<toggleclass>>">
+    ```twee
+    → In StoryInit, set a default
+    <<set $darkMode to false>>
+
+    → In a UI bar or settings passage
+    <<link "Toggle dark mode">>
+        <<toggleclass "body" "theme-dark">>
+        <<set $darkMode to !$darkMode>>
+    <</link>>
+    ```
+  </Accordion>
+</AccordionGroup>

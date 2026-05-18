@@ -1,0 +1,739 @@
+---
+title: "Save API: Managing Browser, Disk, and Base64 Saves"
+description: "Complete reference for Tea's Save API — browser auto/slot saves, disk file saves, Base64 string saves, and save lifecycle event handlers."
+---
+
+The `Save` API gives you full programmatic control over the story's save system. Saves are organized into four storage targets: **browser auto**, **browser slot**, **disk** (file download/upload), and **Base64** (encoded string). Each target has its own sub-object on `Save`, and a pair of lifecycle event registries (`Save.onLoad` / `Save.onSave`) let you pre-process save data before it is written or read.
+
+<Warning>
+  Browser saves are largely incompatible with private browsing modes, which cause all in-browser storage mechanisms to either persist only for the lifetime of the browsing session or fail outright.
+</Warning>
+
+<Note>
+  Familiarize yourself with the relevant `Config.saves` settings (e.g. `maxAutoSaves`, `maxSlotSaves`) before using this API, as they govern capacity limits.
+</Note>
+
+---
+
+## Save objects
+
+### Save data object
+
+A full save data object is passed to `onLoad` / `onSave` handlers and is the return value of `Save.base64.save()`. It has the following properties:
+
+<ResponseField name="date" type="number" required>
+  The save's creation date in milliseconds elapsed since epoch.
+</ResponseField>
+
+<ResponseField name="desc" type="string" required>
+  The save's description string.
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  The save ID. Determined by `Config.saves.id`.
+</ResponseField>
+
+<ResponseField name="metadata" type="any">
+  Optional metadata supplied when the save was created. Must be JSON-serializable. Present only if specified.
+</ResponseField>
+
+<ResponseField name="state" type="object" required>
+  The marshaled story state. Contains the following sub-properties:
+
+  <Expandable title="state properties">
+    <ResponseField name="state.history" type="Array<object>" required>
+      Array of moment objects, each with `title` (string), `variables` (object), and optional `pull` (integer) when the seedable PRNG is active.
+    </ResponseField>
+    <ResponseField name="state.index" type="number" required>
+      Zero-based index of the currently active moment.
+    </ResponseField>
+    <ResponseField name="state.expired" type="Array<string>">
+      Array of expired passage names. Present only when moments have expired.
+    </ResponseField>
+    <ResponseField name="state.seed" type="string">
+      Seed of the seedable PRNG. Present only when the seedable PRNG is enabled.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="type" type="Save.Type" required>
+  The save's type. See [`Save.Type`](#save-type) below.
+</ResponseField>
+
+<ResponseField name="version" type="any">
+  Optional version value from `Config.saves.version`. Present only if specified.
+</ResponseField>
+
+### Save descriptor object
+
+Descriptor objects are provided by browser-save enumeration methods (`entries()`, `get()`, `newest()`). They are identical to save data objects **except that `state` is omitted** — descriptors are lightweight metadata only.
+
+---
+
+## Save.Type
+
+`Save.Type` is a pseudo-enumeration used to identify which storage target produced or will consume a save object.
+
+| Constant | Description |
+|---|---|
+| `Save.Type.Auto` | Browser auto save |
+| `Save.Type.Slot` | Browser slot save |
+| `Save.Type.Disk` | Disk (file) save |
+| `Save.Type.Base64` | Base64 string save |
+
+```js
+Save.onLoad.add(function (save) {
+  if (save.type === Save.Type.Auto) {
+    // handle auto save
+  }
+});
+```
+
+---
+
+## Browser saves — general
+
+These methods operate across both auto and slot saves.
+
+### `Save.browser.size`
+
+The total count of existing browser saves (auto + slot combined).
+
+```js
+if (Save.browser.size > 0) {
+  // at least one browser save exists
+}
+```
+
+### `Save.browser.clear()`
+
+Deletes all existing browser saves, both auto and slot.
+
+```js
+Save.browser.clear();
+```
+
+### `Save.browser.continue()` → `Promise`
+
+Loads the most recent browser save (auto or slot, whichever is newer).
+
+<Warning>
+  Saves cannot be loaded during startup. Any attempt will cause an error.
+</Warning>
+
+```js
+if (Save.browser.size > 0) {
+  Save.browser.continue()
+    .then(() => Engine.show())
+    .catch(error => {
+      console.error(error);
+      UI.alert(error);
+    });
+}
+```
+
+### `Save.browser.isEnabled()` → `boolean`
+
+Returns `true` if any browser saves are enabled (auto, slot, or both).
+
+```js
+if (Save.browser.isEnabled()) {
+  // at least one browser save type is enabled
+}
+```
+
+### `Save.browser.newest()` → `Object | null`
+
+Returns the [descriptor object](#save-descriptor-object) for the most recent browser save, or `null` if no browser saves exist.
+
+```js
+const latest = Save.browser.newest();
+if (latest) {
+  console.log('Most recent save:', latest.desc, new Date(latest.date));
+}
+```
+
+---
+
+## Browser saves — auto
+
+<Note>
+  The maximum number of auto save slots is controlled by `Config.saves.maxAutoSaves`. Indices are zero-based.
+</Note>
+
+### `Save.browser.auto.size`
+
+The count of existing auto saves.
+
+```js
+console.log(`Auto saves: ${Save.browser.auto.size}`);
+```
+
+### `Save.browser.auto.clear()`
+
+Deletes all auto saves.
+
+```js
+Save.browser.auto.clear();
+```
+
+### `Save.browser.auto.delete(index)`
+
+Deletes the auto save at the given zero-based index.
+
+<ParamField path="index" type="number" required>
+  Zero-based auto save index. Must be in the range `0`–`Config.saves.maxAutoSaves`.
+</ParamField>
+
+```js
+try {
+  Save.browser.auto.delete(0);
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+### `Save.browser.auto.entries()` → `Array<Object>`
+
+Returns an array of `{ index, info }` objects for every existing auto save, or an empty array if none exist. `info` is a [descriptor object](#save-descriptor-object).
+
+```js
+Save.browser.auto.entries().forEach(function (entry) {
+  console.log(`Auto save ${entry.index}:`, entry.info.desc);
+});
+```
+
+### `Save.browser.auto.get(index)` → `Object | null`
+
+Returns the [descriptor object](#save-descriptor-object) for the auto save at the given index, or `null` if it does not exist.
+
+<ParamField path="index" type="number" required>
+  Zero-based auto save index.
+</ParamField>
+
+```js
+const info = Save.browser.auto.get(0);
+if (info) {
+  console.log('Auto save 0:', info.desc);
+}
+```
+
+### `Save.browser.auto.has(index)` → `boolean`
+
+Returns `true` if an auto save exists at the given index.
+
+<ParamField path="index" type="number" required>
+  Zero-based auto save index.
+</ParamField>
+
+```js
+if (Save.browser.auto.has(0)) {
+  // auto save 0 exists
+}
+```
+
+### `Save.browser.auto.isEnabled()` → `boolean`
+
+Returns `true` if auto saves are enabled.
+
+```js
+if (Save.browser.auto.isEnabled()) {
+  Save.browser.auto.save();
+}
+```
+
+### `Save.browser.auto.load(index)` → `Promise`
+
+Loads the auto save at the given index.
+
+<Warning>
+  Saves cannot be loaded during startup. Any attempt will cause an error.
+</Warning>
+
+<ParamField path="index" type="number" required>
+  Zero-based auto save index.
+</ParamField>
+
+```js
+Save.browser.auto.load(0)
+  .then(() => Engine.show())
+  .catch(error => {
+    console.error(error);
+    UI.alert(error);
+  });
+```
+
+### `Save.browser.auto.save([desc [, metadata]])`
+
+Saves an auto save. If all auto save positions are full, the oldest is replaced.
+
+<ParamField path="desc" type="string">
+  Description for the save. Defaults to the active passage's description when omitted or `null`.
+</ParamField>
+
+<ParamField path="metadata" type="any">
+  Optional JSON-serializable data stored in the save's `metadata` property.
+</ParamField>
+
+<CodeGroup>
+
+```js Basic
+try {
+  Save.browser.auto.save();
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+```js With description and metadata
+try {
+  Save.browser.auto.save("Chapter 3 — The Forest", {
+    chapter : 3,
+    health  : 85
+  });
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+</CodeGroup>
+
+---
+
+## Browser saves — slot
+
+<Note>
+  The maximum number of slot saves is controlled by `Config.saves.maxSlotSaves`. Indices are zero-based.
+</Note>
+
+### `Save.browser.slot.size`
+
+The count of existing slot saves.
+
+```js
+console.log(`Slot saves: ${Save.browser.slot.size}`);
+```
+
+### `Save.browser.slot.clear()`
+
+Deletes all slot saves.
+
+```js
+Save.browser.slot.clear();
+```
+
+### `Save.browser.slot.delete(index)`
+
+Deletes the slot save at the given index.
+
+<ParamField path="index" type="number" required>
+  Zero-based slot save index. Must be in the range `0`–`Config.saves.maxSlotSaves`.
+</ParamField>
+
+```js
+try {
+  Save.browser.slot.delete(2);
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+### `Save.browser.slot.entries()` → `Array<Object>`
+
+Returns an array of `{ index, info }` objects for every existing slot save.
+
+```js
+Save.browser.slot.entries().forEach(function (entry) {
+  console.log(`Slot ${entry.index}:`, entry.info.desc);
+});
+```
+
+### `Save.browser.slot.get(index)` → `Object | null`
+
+Returns the [descriptor object](#save-descriptor-object) for the slot save at the given index, or `null`.
+
+<ParamField path="index" type="number" required>
+  Zero-based slot save index.
+</ParamField>
+
+```js
+const info = Save.browser.slot.get(1);
+if (info) {
+  console.log('Slot 1:', info.desc, new Date(info.date));
+}
+```
+
+### `Save.browser.slot.has(index)` → `boolean`
+
+Returns `true` if a slot save exists at the given index.
+
+<ParamField path="index" type="number" required>
+  Zero-based slot save index.
+</ParamField>
+
+```js
+if (Save.browser.slot.has(0)) {
+  // slot 0 is occupied
+}
+```
+
+### `Save.browser.slot.isEnabled()` → `boolean`
+
+Returns `true` if slot saves are enabled.
+
+```js
+if (Save.browser.slot.isEnabled()) {
+  // show the slot UI
+}
+```
+
+### `Save.browser.slot.load(index)` → `Promise`
+
+Loads the slot save at the given index.
+
+<Warning>
+  Saves cannot be loaded during startup. Any attempt will cause an error.
+</Warning>
+
+<ParamField path="index" type="number" required>
+  Zero-based slot save index.
+</ParamField>
+
+```js
+Save.browser.slot.load(0)
+  .then(() => Engine.show())
+  .catch(error => {
+    console.error(error);
+    UI.alert(error);
+  });
+```
+
+### `Save.browser.slot.save(index [, desc [, metadata]])`
+
+Saves to the given slot index.
+
+<ParamField path="index" type="number" required>
+  Zero-based slot save index. Must be in the range `0`–`Config.saves.maxSlotSaves`.
+</ParamField>
+
+<ParamField path="desc" type="string">
+  Description for the save. Defaults to the active passage's description when omitted or `null`.
+</ParamField>
+
+<ParamField path="metadata" type="any">
+  Optional JSON-serializable data stored in the save's `metadata` property.
+</ParamField>
+
+<CodeGroup>
+
+```js Basic
+try {
+  Save.browser.slot.save(0);
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+```js With description and metadata
+try {
+  Save.browser.slot.save(0, "Before the boss fight", {
+    level : 10,
+    gold  : 2345
+  });
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+</CodeGroup>
+
+---
+
+## Disk saves
+
+Disk saves write to the player's filesystem via browser file download/upload. They are useful as portable backups that are unaffected by browser storage limits or clearing.
+
+### `Save.disk.export(filename)`
+
+Exports **all existing browser saves** as a bundle file (`.savesbundle`). The filename is slugified and a datestamp is appended.
+
+<ParamField path="filename" type="string" required>
+  Base filename for the exported bundle. Symbols are removed and a datestamp is appended — e.g. `"My Game"` → `my-game-20260101-120000.savesbundle`.
+</ParamField>
+
+```js
+try {
+  Save.disk.export('The 6th Fantasy');
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+### `Save.disk.import(event)` → `Promise`
+
+Imports a saves bundle created by `Save.disk.export()`. Must be called from the `change` event handler of an `<input type="file">` element.
+
+<Warning>
+  All existing browser saves are deleted before the imported bundle is restored.
+</Warning>
+
+<ParamField path="event" type="Event" required>
+  The `change` event object from an `<input type="file">` element.
+</ParamField>
+
+```js
+jQuery(document.createElement('input'))
+  .prop({ type: 'file', id: 'import-bundle' })
+  .on('change', ev => {
+    Save.disk.import(ev)
+      .then(() => { /* success */ })
+      .catch(error => {
+        console.error(error);
+        UI.alert(error);
+      });
+  });
+```
+
+### `Save.disk.load(event)` → `Promise`
+
+Loads a single save file created by `Save.disk.save()`. Must be called from the `change` event handler of an `<input type="file">` element. Resolves with the save's metadata.
+
+<Warning>
+  Saves cannot be loaded during startup. Any attempt will cause an error.
+</Warning>
+
+<ParamField path="event" type="Event" required>
+  The `change` event object from an `<input type="file">` element.
+</ParamField>
+
+```js
+jQuery(document.createElement('input'))
+  .prop({ type: 'file' })
+  .on('change', ev => {
+    Save.disk.load(ev)
+      .then(metadata => Engine.show())
+      .catch(error => {
+        console.error(error);
+        UI.alert(error);
+      });
+  });
+```
+
+### `Save.disk.save(filename [, metadata])`
+
+Saves the current story state to a `.save` file download.
+
+<ParamField path="filename" type="string" required>
+  Base filename. Slugified with a datestamp appended — e.g. `"My Game"` → `my-game-20260101-120000.save`.
+</ParamField>
+
+<ParamField path="metadata" type="any">
+  Optional JSON-serializable data stored in the save's `metadata` property.
+</ParamField>
+
+```js
+try {
+  Save.disk.save("The 6th Fantasy", { chapter: 4 });
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+---
+
+## Base64 saves
+
+Base64 saves encode the story state as a plain string, which can be stored anywhere — a database, clipboard, or URL parameter.
+
+### `Save.base64.export()` → `string`
+
+Exports all existing browser saves as a Base64-encoded bundle string.
+
+```js
+try {
+  const bundle = Save.base64.export();
+  localStorage.setItem('myBundle', bundle);
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+### `Save.base64.import(bundle)` → `Promise`
+
+Imports a Base64 saves bundle created by `Save.base64.export()`.
+
+<Warning>
+  All existing browser saves are deleted before the imported bundle is restored.
+</Warning>
+
+<ParamField path="bundle" type="string" required>
+  The Base64 saves bundle string.
+</ParamField>
+
+```js
+Save.base64.import(bundle)
+  .then(() => { /* success */ })
+  .catch(error => {
+    console.error(error);
+    UI.alert(error);
+  });
+```
+
+### `Save.base64.load(save)` → `Promise`
+
+Loads a single Base64 save string created by `Save.base64.save()`. Resolves with the save's metadata.
+
+<Warning>
+  Saves cannot be loaded during startup. Any attempt will cause an error.
+</Warning>
+
+<ParamField path="save" type="string" required>
+  The Base64 save string.
+</ParamField>
+
+```js
+Save.base64.load(base64Save)
+  .then(metadata => Engine.show())
+  .catch(error => {
+    console.error(error);
+    UI.alert(error);
+  });
+```
+
+### `Save.base64.save([metadata])` → `string`
+
+Saves the current story state as a Base64-encoded string.
+
+<ParamField path="metadata" type="any">
+  Optional JSON-serializable data stored in the save's `metadata` property.
+</ParamField>
+
+```js
+try {
+  const encoded = Save.base64.save({ chapter: 2 });
+  // store or transmit `encoded` however you like
+} catch (error) {
+  console.error(error);
+  UI.alert(error);
+}
+```
+
+---
+
+## Save event handlers
+
+`Save.onLoad` and `Save.onSave` let you intercept saves before they are read or written — useful for migrating old save formats, stripping sensitive data, or tagging saves.
+
+### `Save.onLoad`
+
+<AccordionGroup>
+  <Accordion title="Save.onLoad.size">
+    The count of currently registered on-load handlers.
+
+    ```js
+    console.log('onLoad handlers:', Save.onLoad.size);
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onLoad.add(handler)">
+    Registers a function to be called before a save is loaded. The handler receives the full [save data object](#save-data-object). Throwing inside the handler displays the error to the player and aborts loading.
+
+    <ParamField path="handler" type="Function" required>
+      A function that receives the save data object as its sole argument.
+    </ParamField>
+
+    ```js
+    Save.onLoad.add(function (save) {
+      // upgrade saves created before version 2
+      if (!save.version || save.version < 2) {
+        save.state.history.forEach(moment => {
+          moment.variables.newProp ??= 'default';
+        });
+      }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onLoad.clear()">
+    Removes all registered on-load handlers.
+
+    ```js
+    Save.onLoad.clear();
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onLoad.delete(handler)">
+    Removes the specified on-load handler. Returns `true` if the handler was registered, `false` otherwise.
+
+    <ParamField path="handler" type="Function" required>
+      The handler function reference to remove.
+    </ParamField>
+
+    ```js
+    Save.onLoad.delete(myOnLoadHandler);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### `Save.onSave`
+
+<AccordionGroup>
+  <Accordion title="Save.onSave.size">
+    The count of currently registered on-save handlers.
+
+    ```js
+    console.log('onSave handlers:', Save.onSave.size);
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onSave.add(handler)">
+    Registers a function to be called before a save is written. The handler receives the full [save data object](#save-data-object) and may modify it in place.
+
+    <ParamField path="handler" type="Function" required>
+      A function that receives the save data object as its sole argument.
+    </ParamField>
+
+    ```js
+    Save.onSave.add(function (save) {
+      switch (save.type) {
+        case Save.Type.Auto:
+          // tag auto saves
+          save.metadata = { ...save.metadata, auto: true };
+          break;
+        case Save.Type.Disk:
+          // strip any sensitive data from disk saves
+          break;
+      }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onSave.clear()">
+    Removes all registered on-save handlers.
+
+    ```js
+    Save.onSave.clear();
+    ```
+  </Accordion>
+
+  <Accordion title="Save.onSave.delete(handler)">
+    Removes the specified on-save handler. Returns `true` if the handler was registered, `false` otherwise.
+
+    <ParamField path="handler" type="Function" required>
+      The handler function reference to remove.
+    </ParamField>
+
+    ```js
+    Save.onSave.delete(myOnSaveHandler);
+    ```
+  </Accordion>
+</AccordionGroup>

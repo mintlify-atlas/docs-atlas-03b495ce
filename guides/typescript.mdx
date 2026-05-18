@@ -1,0 +1,97 @@
+---
+title: "TypeScript Support and Type Declarations in Tea Projects"
+description: "Add TypeScript type declarations to your Tea project via the @types/twine-sugarcube Definitely Typed package, with setup steps for Tweego-based workflows."
+---
+
+Tea's JavaScript API surface — `State`, `Macro`, `Dialog`, `Save`, `Config`, and more — can be used with TypeScript type checking in Tweego-based projects. Type declarations are available through the [Definitely Typed](https://definitelytyped.org/) package `@types/twine-sugarcube`, which provides type information for the full SugarCube 2 API that Tea is built on.
+
+## Installing Type Declarations
+
+Install the package as a development dependency via npm:
+
+```bash
+npm install --save-dev @types/twine-sugarcube
+```
+
+Once installed, TypeScript will automatically pick up the declarations for all SugarCube/Tea globals (`State`, `Macro`, `Config`, `Story`, `Engine`, `Save`, `Dialog`, `UI`, etc.) in any `.ts` file in your project.
+
+## Project Setup
+
+<Steps>
+  <Step title="Initialize a package.json">
+    If your Tweego project doesn't already have one:
+
+    ```bash
+    npm init -y
+    ```
+  </Step>
+  <Step title="Install TypeScript and declarations">
+    ```bash
+    npm install --save-dev typescript @types/twine-sugarcube
+    ```
+  </Step>
+  <Step title="Add a tsconfig.json">
+    A minimal config for a Tweego project:
+
+    ```json
+    {
+      "compilerOptions": {
+        "target": "ES2017",
+        "lib": ["ES2017", "DOM"],
+        "strict": true,
+        "noEmit": false,
+        "outDir": "dist/js"
+      },
+      "include": ["src/**/*.ts"]
+    }
+    ```
+  </Step>
+  <Step title="Compile and include in your story">
+    Compile your TypeScript with `tsc`, then reference the compiled `.js` output from a `script`-tagged passage or pass it to Tweego as part of your source.
+  </Step>
+</Steps>
+
+## What the Type Declarations Cover
+
+The `@types/twine-sugarcube` package provides types for:
+
+- The `State` API (variables, temporary variables, history, PRNG)
+- The `Macro` API (`Macro.add`, `MacroContext`)
+- The `Config` API (all configuration properties)
+- The `Save` API (browser slots, autosaves, disk saves, base64)
+- The `Dialog`, `UI`, `Engine`, `Story`, and `Passage` APIs
+- Built-in functions (`clone`, `memorize`, `recall`, `forget`, `visited`, `passage`, `tags`, etc.)
+- jQuery extensions added by SugarCube
+
+<Note>
+Because Tea is a fork of SugarCube 2, the `@types/twine-sugarcube` declarations closely match Tea's API. Any Tea-specific additions or changes may not yet be reflected in the Definitely Typed package.
+</Note>
+
+## Example: Typed Macro Registration
+
+```ts
+Macro.add('greet', {
+    handler(this: MacroContext): void {
+        if (this.args.length === 0) {
+            return this.error('no name provided');
+        }
+        const name = String(this.args[0]);
+        jQuery(this.output).text(`Hello, ${name}!`);
+    }
+});
+```
+
+## Example: Typed Story Variable Access
+
+Story variables in SugarCube/Tea are accessed at runtime via `State.variables`, which is typed as a plain object. You can augment the type for better safety:
+
+```ts
+interface StoryVars {
+    playerName: string;
+    playerLevel: number;
+    inventory: string[];
+}
+
+const vars = State.variables as StoryVars;
+console.log(vars.playerName); // typed as string
+```

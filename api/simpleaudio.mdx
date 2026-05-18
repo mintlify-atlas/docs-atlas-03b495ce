@@ -1,0 +1,487 @@
+---
+title: "SimpleAudio API — Tea Story Format Audio Systems"
+description: "Complete reference for Tea's SimpleAudio API: master volume, mute, track/group/list management, and the AudioRunner selector for bulk operations."
+---
+
+The `SimpleAudio` object is Tea's core audio subsystem and the backend that powers all audio macros. It manages a registry of named tracks, groups, and playlists, and exposes a master volume and mute layer that sits above individual track volumes. All audio in Tea flows through this object.
+
+<Note>
+The audio subsystem is built on the [HTML Media Elements APIs](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement) and inherits several platform limitations. True gapless transitions between tracks are not supported. On mobile browsers, hardware controls the device volume, so software volume calls have no effect (though muting still works). Most browsers also require a user gesture before audio can play — see the guidance on `playWhenAllowed()` in the [AudioTrack reference](/api/audiotrack).
+</Note>
+
+---
+
+## General methods
+
+These methods operate on **all** currently registered tracks at once.
+
+### `SimpleAudio.load()`
+
+Pauses playback of all currently registered tracks and, if they are not already loading, drops any existing buffered data and restarts loading from source.
+
+<Warning>
+This should not be called lightly when audio sources are hosted on a network — it forces every player to begin downloading all registered audio simultaneously.
+</Warning>
+
+```js
+SimpleAudio.load();
+```
+
+---
+
+### `SimpleAudio.loadWithScreen()`
+
+Displays the loading screen until all currently registered audio tracks have either loaded to a playable state or aborted loading due to errors. The loading process is identical to `SimpleAudio.load()`.
+
+<Warning>
+Like `SimpleAudio.load()`, this forces all network-hosted audio to begin downloading and should be used deliberately.
+</Warning>
+
+```js
+SimpleAudio.loadWithScreen();
+```
+
+---
+
+### `SimpleAudio.mute([state])` → `boolean` | `undefined`
+
+Gets or sets the **master volume mute state** (default: `false`). Called without an argument it returns the current mute state; called with a boolean it sets the state and returns `undefined`.
+
+<ParamField path="state" type="boolean" optional>
+  The mute state to apply. `true` mutes all audio; `false` unmutes.
+</ParamField>
+
+<ResponseField name="return (get)" type="boolean">
+  The current master mute state when called without an argument.
+</ResponseField>
+
+```js
+// Get the current master mute state.
+var isMuted = SimpleAudio.mute();
+
+// Mute the master volume.
+SimpleAudio.mute(true);
+
+// Unmute the master volume.
+SimpleAudio.mute(false);
+```
+
+---
+
+### `SimpleAudio.muteOnHidden([state])` → `boolean` | `undefined`
+
+Gets or sets the **mute-on-hidden state** (default: `false`). When enabled, the master volume is automatically muted whenever the story's browser tab loses visibility (switched away or minimized), and unmuted when it regains visibility.
+
+<ParamField path="state" type="boolean" optional>
+  `true` to enable automatic muting on tab hide; `false` to disable.
+</ParamField>
+
+<ResponseField name="return (get)" type="boolean">
+  The current mute-on-hidden state when called without an argument.
+</ResponseField>
+
+```js
+// Get the current mute-on-hidden state.
+var isMuteOnHidden = SimpleAudio.muteOnHidden();
+
+// Enable automatic muting when the tab is hidden.
+SimpleAudio.muteOnHidden(true);
+
+// Disable automatic muting when the tab is hidden.
+SimpleAudio.muteOnHidden(false);
+```
+
+---
+
+### `SimpleAudio.select(selector)` → `AudioRunner`
+
+Returns an [`AudioRunner`](/api/audiotrack#audiorunner) instance for all tracks matching the given selector string. The `AudioRunner` exposes the same method surface as `AudioTrack` and applies every operation to all matched tracks simultaneously.
+
+<ParamField path="selector" type="string" required>
+  A space-separated list of track IDs and/or group IDs. Predefined group IDs are `:all`, `:looped`, `:muted`, `:paused`, `:playing`, and `:stopped`. The `:not()` modifier syntax (`groupId:not(selector)`) excludes a subset of tracks from a group selection.
+</ParamField>
+
+<ResponseField name="return" type="AudioRunner">
+  An `AudioRunner` instance targeting all matched tracks.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Basic">
+    ```js
+    // Return the AudioRunner for tracks matching ":ui".
+    SimpleAudio.select(":ui");
+    ```
+  </Tab>
+  <Tab title="Playback control">
+    ```js
+    // Play a specific track at full volume.
+    SimpleAudio.select("swamped").volume(1).play();
+
+    // Start all paused tracks.
+    SimpleAudio.select(":paused").play();
+
+    // Stop all playing tracks except those in the ":ui" group.
+    SimpleAudio.select(":playing:not(:ui)").stop();
+
+    // Set volume of all tracks except ":ui" to 40%.
+    SimpleAudio.select(":all:not(:ui)").volume(0.40);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### `SimpleAudio.stop()`
+
+Stops playback of all currently registered tracks.
+
+```js
+SimpleAudio.stop();
+```
+
+---
+
+### `SimpleAudio.unload()`
+
+Stops playback of all currently registered tracks and forces them to drop any buffered data.
+
+<Note>
+Once unloaded, a track cannot play again until it is explicitly reloaded.
+</Note>
+
+```js
+SimpleAudio.unload();
+```
+
+---
+
+### `SimpleAudio.volume([level])` → `number` | `undefined`
+
+Gets or sets the **master volume level** (default: `1`).
+
+<ParamField path="level" type="number" optional>
+  The master volume to set. Valid range is `0.0` (silent) to `1.0` (loudest).
+</ParamField>
+
+<ResponseField name="return (get)" type="number">
+  The current master volume level when called without an argument.
+</ResponseField>
+
+```js
+// Get the current master volume.
+var masterVol = SimpleAudio.volume();
+
+// Set the master volume to 75%.
+SimpleAudio.volume(0.75);
+```
+
+---
+
+## `SimpleAudio.tracks`
+
+The `tracks` namespace manages individual named audio tracks that can later be referenced by ID in macros, groups, and playlists.
+
+### `SimpleAudio.tracks.add(trackId, sources…)`
+
+Registers a new audio track under the given ID.
+
+<ParamField path="trackId" type="string" required>
+  The ID used to reference this track everywhere else in the API.
+</ParamField>
+
+<ParamField path="sources" type="string | string[]" required>
+  One or more audio source URLs (absolute or relative), audio passage names, or data URIs. Supplying multiple formats is recommended for cross-browser compatibility. A format specifier prefix (`formatId|`) can be prepended when the format cannot be auto-detected from the URL.
+</ParamField>
+
+<CodeGroup>
+```js Single source
+SimpleAudio.tracks.add("boom", "media/audio/explosion.mp3");
+```
+
+```js Multiple formats
+SimpleAudio.tracks.add("bgm_space",
+  "media/audio/space_quest.mp3",
+  "media/audio/space_quest.ogg"
+);
+```
+
+```js Format specifier
+SimpleAudio.tracks.add("what", "mp3|http://an-audio-service.com/a-user/a-track-id");
+```
+
+```js Audio passage
+SimpleAudio.tracks.add("boom", "explosion");
+```
+</CodeGroup>
+
+---
+
+### `SimpleAudio.tracks.clear()`
+
+Deletes all registered audio tracks.
+
+<Note>
+Tracks that are solely owned by a playlist cannot be deleted this way.
+</Note>
+
+```js
+SimpleAudio.tracks.clear();
+```
+
+---
+
+### `SimpleAudio.tracks.delete(trackId)`
+
+Deletes the audio track with the given ID.
+
+<Warning>
+Deleting a track does not remove it from any groups or playlists that reference it. Rebuild any affected groups or playlists after deletion.
+</Warning>
+
+<ParamField path="trackId" type="string" required>
+  The ID of the track to delete.
+</ParamField>
+
+```js
+SimpleAudio.tracks.delete("bgm_space");
+```
+
+---
+
+### `SimpleAudio.tracks.get(trackId)` → `AudioTrack | null`
+
+Returns the [`AudioTrack`](/api/audiotrack) instance for the given track ID, or `null` if no track with that ID exists.
+
+<ParamField path="trackId" type="string" required>
+  The ID of the track to retrieve.
+</ParamField>
+
+<ResponseField name="return" type="AudioTrack | null">
+  The matching `AudioTrack` instance, or `null` on failure.
+</ResponseField>
+
+<Tip>
+To operate on multiple tracks at once, use `SimpleAudio.select()` instead.
+</Tip>
+
+```js
+// Retrieve and immediately chain playback.
+SimpleAudio.tracks.get("swamped").volume(1).play();
+```
+
+---
+
+### `SimpleAudio.tracks.has(trackId)` → `boolean`
+
+Returns `true` if a track with the given ID exists, `false` otherwise.
+
+<ParamField path="trackId" type="string" required>
+  The ID of the track to check.
+</ParamField>
+
+```js
+if (SimpleAudio.tracks.has("bgm_space")) {
+  // Track exists, safe to use.
+}
+```
+
+---
+
+## `SimpleAudio.groups`
+
+Groups are named collections of track IDs. They let you apply operations to multiple tracks simultaneously and let you use the `:not()` selector modifier to exclude them from broader selections.
+
+<Note>
+Groups are for simultaneous operations. If you need tracks to play one after another, use a [playlist](/api/simpleaudio#simpleau-diolists) instead.
+</Note>
+
+### `SimpleAudio.groups.add(groupId, trackIds…)`
+
+Creates a new audio group containing the specified track IDs.
+
+<ParamField path="groupId" type="string" required>
+  The group ID, which **must begin with a colon** (e.g., `:ui`). The IDs `:all`, `:looped`, `:muted`, `:paused`, `:playing`, `:stopped`, and `:not` are reserved and cannot be used.
+</ParamField>
+
+<ParamField path="trackIds" type="string | string[]" required>
+  The IDs of the tracks to include in the group.
+</ParamField>
+
+```js
+// Create a ":ui" group from three sound-effect tracks.
+SimpleAudio.groups.add(":ui", "ui_beep", "ui_boop", "ui_swish");
+```
+
+---
+
+### `SimpleAudio.groups.clear()`
+
+Deletes all audio groups. Does not affect the tracks themselves.
+
+```js
+SimpleAudio.groups.clear();
+```
+
+---
+
+### `SimpleAudio.groups.delete(groupId)`
+
+Deletes the audio group with the given ID. Does not affect the tracks contained in the group.
+
+<ParamField path="groupId" type="string" required>
+  The ID of the group to delete.
+</ParamField>
+
+```js
+SimpleAudio.groups.delete(":ui");
+```
+
+---
+
+### `SimpleAudio.groups.get(groupId)` → `string[] | null`
+
+Returns the array of track IDs in the given group, or `null` if the group does not exist.
+
+<ParamField path="groupId" type="string" required>
+  The ID of the group.
+</ParamField>
+
+<ResponseField name="return" type="string[] | null">
+  An array of track ID strings belonging to the group, or `null` on failure.
+</ResponseField>
+
+```js
+SimpleAudio.groups.get(":ui"); // → ["ui_beep", "ui_boop", "ui_swish"]
+```
+
+---
+
+### `SimpleAudio.groups.has(groupId)` → `boolean`
+
+Returns `true` if a group with the given ID exists.
+
+<ParamField path="groupId" type="string" required>
+  The ID of the group to check.
+</ParamField>
+
+```js
+if (SimpleAudio.groups.has(":ui")) {
+  // Group exists.
+}
+```
+
+---
+
+## `SimpleAudio.lists`
+
+Playlists play a sequence of tracks one after another. They support shuffle, loop, skip, and all the same volume/mute controls as individual tracks.
+
+<Note>
+If you only need to apply simultaneous actions to multiple tracks without sequencing, use a [group](/api/simpleaudio#simpleaudiogroups) instead.
+</Note>
+
+### `SimpleAudio.lists.add(listId, sources…)`
+
+Creates a new playlist. Sources may be bare track IDs or descriptor objects that specify per-track volume and ownership.
+
+<ParamField path="listId" type="string" required>
+  The ID used to reference this playlist.
+</ParamField>
+
+<ParamField path="sources" type="string | Object | Array<string | Object>" required>
+  Track IDs or descriptor objects. Two descriptor forms are supported:
+
+  **Existing track form** `{ id, [own], [volume] }`
+  - `id` — ID of an existing registered track.
+  - `own` *(optional)* — When `true`, the playlist creates an independent copy of the track. Owned copies cannot be selected via `SimpleAudio.tracks.get()` or `SimpleAudio.select()`.
+  - `volume` *(optional)* — Base volume for this track within the playlist (0–1). Defaults to the track's current volume.
+
+  **New track form** `{ sources, [volume] }`
+  - `sources` — Array of source URLs/passages for an inline track.
+  - `volume` *(optional)* — Base volume (0–1). Defaults to `1`.
+</ParamField>
+
+<CodeGroup>
+```js Track IDs only
+SimpleAudio.lists.add("bgm_lacuna",
+  "swamped", "heavens_a_lie", "closer", "to_the_edge"
+);
+```
+
+```js Mix of IDs and descriptors
+SimpleAudio.lists.add("bgm_lacuna",
+  "swamped",
+  { id: "heavens_a_lie", volume: 0.5 },
+  { id: "closer", own: true },
+  { id: "to_the_edge", own: true, volume: 1 }
+);
+```
+
+```js Inline sources
+SimpleAudio.lists.add("bgm_lacuna",
+  { sources: ["media/audio/Swamped.mp3"] },
+  { sources: ["media/audio/Heaven's_A_Lie.mp3"], volume: 0.5 },
+  { sources: ["media/audio/Closer.mp3"] },
+  { sources: ["media/audio/To_The_Edge.mp3"], volume: 1 }
+);
+```
+</CodeGroup>
+
+---
+
+### `SimpleAudio.lists.clear()`
+
+Deletes all playlists.
+
+```js
+SimpleAudio.lists.clear();
+```
+
+---
+
+### `SimpleAudio.lists.delete(listId)`
+
+Deletes the playlist with the given ID.
+
+<ParamField path="listId" type="string" required>
+  The ID of the playlist to delete.
+</ParamField>
+
+```js
+SimpleAudio.lists.delete("bgm_lacuna");
+```
+
+---
+
+### `SimpleAudio.lists.get(listId)` → `AudioList | null`
+
+Returns the [`AudioList`](/api/audiolist) instance for the given list ID, or `null` if no such playlist exists.
+
+<ParamField path="listId" type="string" required>
+  The ID of the playlist.
+</ParamField>
+
+<ResponseField name="return" type="AudioList | null">
+  The matching `AudioList` instance, or `null` on failure.
+</ResponseField>
+
+```js
+// Start looping a playlist at full volume.
+SimpleAudio.lists.get("bgm_lacuna").volume(1).loop(true).play();
+```
+
+---
+
+### `SimpleAudio.lists.has(listId)` → `boolean`
+
+Returns `true` if a playlist with the given ID exists.
+
+<ParamField path="listId" type="string" required>
+  The ID of the playlist to check.
+</ParamField>
+
+```js
+if (SimpleAudio.lists.has("bgm_lacuna")) {
+  // Playlist exists.
+}
+```

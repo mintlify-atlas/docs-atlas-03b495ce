@@ -1,0 +1,350 @@
+---
+title: "AudioList API — Tea Playlist Prototype Reference"
+description: "Complete reference for Tea's AudioList prototype: play, pause, stop, fade, loop, shuffle, skip, volume, and event methods for playlists."
+---
+
+An `AudioList` represents a playlist — a sequenced collection of audio tracks that plays one after another. You obtain an instance via [`SimpleAudio.lists.get(listId)`](/api/simpleaudio#simpleaudiolistsgetlistid) after registering the playlist with [`SimpleAudio.lists.add()`](/api/simpleaudio#simpleaudiolistsaddlistid-sources). Playlists support shuffle mode, looping, per-list volume and mute, and the same fade methods available on individual tracks.
+
+<Note>
+Playlists are for sequential playback. If you want to apply simultaneous operations to multiple tracks without sequencing them, use a [group](/api/simpleaudio#simpleaudiogroups) instead.
+</Note>
+
+---
+
+## Playback methods
+
+### `<AudioList>.play()` → `Promise`
+
+Begins playback of the playlist from the current track. Returns a `Promise` that resolves when playback starts, or rejects with an error.
+
+```js
+// Basic usage.
+aList.play();
+
+// With a Promise.
+aList.play()
+  .then(() => { console.log('Playlist is playing.'); })
+  .catch((problem) => { console.warn('Playback error:', problem); });
+```
+
+---
+
+### `<AudioList>.playWhenAllowed()`
+
+Begins playback immediately if allowed, or queues the playlist to begin as soon as the player next interacts with the document. Use this when autoplay restrictions may block `play()`.
+
+```js
+aList.playWhenAllowed();
+```
+
+---
+
+### `<AudioList>.pause()`
+
+Pauses playback of the playlist at the current track's current position.
+
+```js
+aList.pause();
+```
+
+---
+
+### `<AudioList>.stop()`
+
+Stops playback of the playlist and resets it to the beginning of the current track.
+
+```js
+aList.stop();
+```
+
+---
+
+### `<AudioList>.skip()`
+
+Skips ahead to the next track in the playlist. If the playlist is at its last track, behavior depends on the loop state.
+
+```js
+aList.skip();
+```
+
+---
+
+### `<AudioList>.load()`
+
+Pauses playback and forces all tracks in the playlist to drop existing buffered data and reload from source.
+
+<Warning>
+Avoid calling this for network-hosted audio unless necessary — it forces the player to re-download all playlist tracks.
+</Warning>
+
+```js
+aList.load();
+```
+
+---
+
+### `<AudioList>.unload()`
+
+Stops playback and forces all tracks in the playlist to drop their buffered data. Playback cannot resume until the tracks are reloaded.
+
+<Note>
+Once unloaded, the playlist cannot play until its tracks have been loaded again.
+</Note>
+
+```js
+aList.unload();
+```
+
+---
+
+## Fade methods
+
+Fade methods operate on the **currently playing track** within the playlist.
+
+### `<AudioList>.fade(duration, toVol [, fromVol])` → `Promise`
+
+Starts playback and fades the current track from an optional starting volume to a destination volume over the given seconds.
+
+<Note>
+When `Config.audio.pauseOnFadeToZero` is `true` (the default), tracks faded to `0` are automatically paused.
+</Note>
+
+<ParamField path="duration" type="number" required>
+  Number of seconds for the fade.
+</ParamField>
+
+<ParamField path="toVol" type="number" required>
+  Destination volume (0–1).
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume (0–1). Defaults to the current track's current volume.
+</ParamField>
+
+```js
+// Fade from 0 to 1 over 6 seconds.
+aList.fade(6, 1, 0);
+```
+
+---
+
+### `<AudioList>.fadeIn(duration [, fromVol])` → `Promise`
+
+Starts playback and fades the current track up to `1` (loudest) over the given number of seconds.
+
+<ParamField path="duration" type="number" required>
+  Number of seconds for the fade.
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume. Defaults to the current track's current volume.
+</ParamField>
+
+```js
+// Fade in from silence over 5 seconds.
+aList.fadeIn(5, 0);
+```
+
+---
+
+### `<AudioList>.fadeOut(duration [, fromVol])` → `Promise`
+
+Starts playback and fades the current track down to `0` (silent) over the given number of seconds.
+
+<ParamField path="duration" type="number" required>
+  Number of seconds for the fade.
+</ParamField>
+
+<ParamField path="fromVol" type="number" optional>
+  Starting volume. Defaults to the current track's current volume.
+</ParamField>
+
+```js
+// Fade out from full volume over 8 seconds.
+aList.fadeOut(8, 1);
+```
+
+---
+
+### `<AudioList>.fadeStop()`
+
+Interrupts an in-progress fade on the current track. The volume is left at whatever level it had reached.
+
+```js
+aList.fadeStop();
+```
+
+---
+
+## State methods
+
+Methods that set state return the `AudioList` instance for chaining.
+
+### `<AudioList>.volume([level])` → `number` | `AudioList`
+
+Gets or sets the playlist's volume level (default: `1`).
+
+<ParamField path="level" type="number" optional>
+  Volume level to set (0–1).
+</ParamField>
+
+```js
+var vol = aList.volume();    // get
+aList.volume(0.75);           // set to 75%
+```
+
+---
+
+### `<AudioList>.mute([state])` → `boolean` | `AudioList`
+
+Gets or sets the playlist's mute state (default: `false`).
+
+<ParamField path="state" type="boolean" optional>
+  `true` to mute, `false` to unmute.
+</ParamField>
+
+```js
+var muted = aList.mute();   // get
+aList.mute(true);             // mute
+aList.mute(false);            // unmute
+```
+
+---
+
+### `<AudioList>.loop([state])` → `boolean` | `AudioList`
+
+Gets or sets whether the playlist restarts after reaching the end of its last track (default: `false`).
+
+<ParamField path="state" type="boolean" optional>
+  `true` to loop, `false` to play once.
+</ParamField>
+
+```js
+var looping = aList.loop();  // get
+aList.loop(true);              // enable looping
+aList.loop(false);             // disable looping
+```
+
+---
+
+### `<AudioList>.shuffle([state])` → `boolean` | `AudioList`
+
+Gets or sets the playlist's shuffle state (default: `false`). When enabled, tracks are played in a randomly shuffled order.
+
+<ParamField path="state" type="boolean" optional>
+  `true` to enable shuffled playback, `false` for sequential.
+</ParamField>
+
+```js
+var shuffled = aList.shuffle();  // get
+aList.shuffle(true);              // enable shuffle
+aList.shuffle(false);             // disable shuffle
+```
+
+---
+
+### `<AudioList>.time()` → `number`
+
+Returns the playlist's current playback position within the active track in seconds, or `NaN` if no metadata exists.
+
+<Note>
+Unlike `AudioTrack.time()`, the playlist version is read-only — it does not accept a value to seek to.
+</Note>
+
+```js
+var pos = aList.time();
+```
+
+---
+
+### `<AudioList>.duration()` → `number`
+
+Returns the playlist's total playtime in seconds across all tracks. Returns `Infinity` if any track is a stream, or `NaN` if metadata is unavailable.
+
+```js
+var total = aList.duration();
+```
+
+---
+
+### `<AudioList>.remaining()` → `number`
+
+Returns how many seconds remain in the playlist. Returns `Infinity` if any track is a stream, or `NaN` if metadata is unavailable.
+
+```js
+var secondsLeft = aList.remaining();
+```
+
+---
+
+## State query methods
+
+All state-query methods return a `boolean` and take no arguments.
+
+| Method | Returns `true` when… |
+|---|---|
+| `isPlaying()` | The playlist is actively playing. |
+| `isPaused()` | Playback has been paused. |
+| `isStopped()` | Playback has been stopped. |
+| `isEnded()` | The playlist played all tracks to the end (without looping). |
+| `isFading()` | A fade is in progress on the current track. |
+
+```js
+if (aList.isPlaying()) {
+  aList.pause();
+}
+
+if (aList.isEnded() && !aList.loop()) {
+  // Playlist finished, do something.
+}
+```
+
+---
+
+## Event methods
+
+These are thin wrappers over jQuery's event methods applied to the underlying audio elements. Always use a custom namespace to avoid conflicts with Tea's internal event handling.
+
+### `<AudioList>.on(events, handler)` → `AudioList`
+
+Attaches a persistent event handler.
+
+```js
+aList.on('ended.myGame', () => {
+  // A track in the playlist ended.
+});
+```
+
+---
+
+### `<AudioList>.one(events, handler)` → `AudioList`
+
+Attaches a single-use event handler that fires once and then removes itself.
+
+```js
+aList.one(':faded.myGame', () => {
+  // A fade completed on a track in this playlist.
+});
+```
+
+---
+
+### `<AudioList>.off(events [, handler])` → `AudioList`
+
+Removes event handlers from the playlist.
+
+```js
+aList.off('ended.myGame');
+```
+
+---
+
+## Audio events
+
+| Event | Fires when… |
+|---|---|
+| `:faded` | A fade on the current track completes normally. |
+| `:fading` | A fade on the current track starts. |
+| `:stopped` | Playback is stopped via `.stop()`. |
+
+See the [Events reference](/api/events#simpleaudio-events) for full details.

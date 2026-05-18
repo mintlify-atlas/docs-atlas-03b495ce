@@ -1,0 +1,142 @@
+{
+  "projectType": "framework",
+  "projectName": "Tea",
+  "projectDescription": "Tea is a free, open-source story format (fork of SugarCube 2) for Twine/Twee that provides a rich macro language, state management, audio support, and scripting APIs for building interactive fiction.",
+  "theme": "maple",
+  "primaryColor": "#242b2c",
+  "lightColor": "#6a6a6d",
+  "darkColor": "#ebeaea",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Language",
+            "pages": [
+              "core/markup",
+              "core/twinescript",
+              "core/special-names"
+            ]
+          },
+          {
+            "group": "Macros",
+            "pages": [
+              "macros/overview",
+              "macros/variables-scripting",
+              "macros/display-control",
+              "macros/interactive",
+              "macros/audio",
+              "macros/dom"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/state-and-saving",
+              "guides/audio",
+              "guides/custom-macros",
+              "guides/localization",
+              "guides/test-mode",
+              "guides/typescript",
+              "guides/migration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core APIs",
+            "pages": [
+              "api/config",
+              "api/engine",
+              "api/state",
+              "api/story",
+              "api/passage"
+            ]
+          },
+          {
+            "group": "UI & Interaction",
+            "pages": [
+              "api/ui",
+              "api/uibar",
+              "api/dialog",
+              "api/fullscreen",
+              "api/loadscreen"
+            ]
+          },
+          {
+            "group": "Saves & Settings",
+            "pages": [
+              "api/save",
+              "api/setting"
+            ]
+          },
+          {
+            "group": "Macros & Scripting",
+            "pages": [
+              "api/macro",
+              "api/macrocontext",
+              "api/template"
+            ]
+          },
+          {
+            "group": "Audio",
+            "pages": [
+              "api/simpleaudio",
+              "api/audiotrack",
+              "api/audiolist"
+            ]
+          },
+          {
+            "group": "Functions & Methods",
+            "pages": [
+              "api/functions",
+              "api/methods",
+              "api/events"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Rich macro language with 50+ built-in macros for variables, display, control flow, interactive UI elements, DOM manipulation, and audio",
+    "TwineScript: a JavaScript-based scripting layer with full support for variables, expressions, operators, and custom types",
+    "Robust state and history management with configurable max history, PRNG support, and metadata storage",
+    "Comprehensive save system supporting browser auto-saves, slot saves, disk export/import, and base64 saves",
+    "SimpleAudio system with tracks, groups, and playlists for immersive audio experiences",
+    "Full-featured settings API for player-configurable options (toggles, lists, ranges)",
+    "Custom macro authoring via the Macro API with MacroContext for advanced widget creation",
+    "Built-in debug bar and test mode for interactive story development",
+    "Localization support with translatable string bundles",
+    "Fork of SugarCube 2 — fully compatible and extended with Tea-specific enhancements"
+  ],
+  "publicApiSurface": [
+    "Config — general, audio, history, macros, navigation, passages, saves, and UI settings",
+    "Engine.play() / Engine.go() / Engine.backward() / Engine.forward()",
+    "State.variables / State.temporary / State.metadata / State.prng",
+    "Save.browser.auto / Save.browser.slot / Save.disk / Save.base64",
+    "Setting.addToggle() / Setting.addList() / Setting.addRange() / Setting.addValue()",
+    "Macro.add() / Macro.get() / Macro.has() — custom macro registration",
+    "MacroContext (args, output, payload, wiki, shadowHandler, etc.)",
+    "Dialog.create() / Dialog.open() / Dialog.close() / Dialog.wiki()",
+    "SimpleAudio.tracks / SimpleAudio.groups / SimpleAudio.lists",
+    "Story.get() / Story.find() / Story.filter() / Story.add()",
+    "Template.add() / Template.get() / Template.has()",
+    "UIBar.stow() / UIBar.unstow() / UIBar.hide() / UIBar.show()",
+    "Fullscreen.request() / Fullscreen.exit() / Fullscreen.toggle()",
+    "Built-in functions: clone(), either(), hasVisited(), memorize(), recall(), random(), triggerEvent()",
+    "Built-in macros: <<set>>, <<if>>, <<for>>, <<switch>>, <<link>>, <<button>>, <<type>>, <<audio>>, <<widget>>"
+  ]
+}

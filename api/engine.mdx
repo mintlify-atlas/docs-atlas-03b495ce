@@ -1,0 +1,242 @@
+---
+title: "Engine API: Navigation and State Control in Tea Stories"
+description: "Reference for the Tea Engine API. Navigate history moments, inspect the engine life-cycle state, render passages, and restart the story."
+---
+
+The `Engine` object drives passage navigation and exposes the runtime lifecycle of a Tea story. It cycles through states — idle, playing, and rendering — as the player moves through passages, and provides methods for programmatically moving backward and forward, jumping to specific moments, and replaying the current passage.
+
+<Note>
+  `Engine.restart()` reloads the browser window immediately with no player prompt. Prefer `UI.restart()` in most cases, which shows a confirmation dialog before calling `Engine.restart()`.
+</Note>
+
+## Constants
+
+### `Engine.State`
+
+A pseudo-enumeration representing the possible runtime states of the engine. As passage navigation occurs, the engine cycles: `Idle` → `Playing` → `Rendering` → `Playing` → `Idle`.
+
+| Value | Description |
+|---|---|
+| `Engine.State.Idle` | The engine is waiting for passage navigation to be triggered. This is the default state. |
+| `Engine.State.Playing` | Navigation has been triggered; the engine is processing a passage. |
+| `Engine.State.Rendering` | The incoming passage is being rendered. This occurs within `Playing` state. |
+
+```js
+// Check the current engine state against the enum
+if (Engine.state === Engine.State.Idle) {
+  // engine is idle
+}
+```
+
+## Getters
+
+### `Engine.lastPlay`
+
+<ResponseField name="Engine.lastPlay" type="number">
+  A timestamp (integer milliseconds) representing the last time `Engine.play()` was called.
+</ResponseField>
+
+Returns the timestamp of the most recent `Engine.play()` call. Useful for measuring elapsed time since the last navigation.
+
+```js
+// Record the timestamp
+let lastPlay = Engine.lastPlay;
+
+// Check whether 5 seconds have passed since the last navigation
+if ((now() - Engine.lastPlay) > 5000) {
+  // 5000ms (5s) have elapsed since Engine.play() was last called
+}
+```
+
+---
+
+### `Engine.state`
+
+<ResponseField name="Engine.state" type="Engine.State">
+  The current state of the engine as an `Engine.State` value.
+</ResponseField>
+
+Returns the engine's current state. Compare against the `Engine.State` enum constants.
+
+```js
+Engine.state; // e.g., Engine.State.Idle
+```
+
+## Methods
+
+### `Engine.backward()`
+
+<ResponseField name="returns" type="boolean">
+  `true` if navigation succeeded; `false` if already at the beginning of the full history.
+</ResponseField>
+
+Moves backward one moment within the full history (past + future), activating and displaying the moment navigated to.
+
+```js
+Engine.backward();
+```
+
+---
+
+### `Engine.forward()`
+
+<ResponseField name="returns" type="boolean">
+  `true` if navigation succeeded; `false` if already at the end of the full history.
+</ResponseField>
+
+Moves forward one moment within the full history (past + future), activating and displaying the moment navigated to.
+
+```js
+Engine.forward();
+```
+
+---
+
+### `Engine.go(offset)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if navigation succeeded; `false` if the offset falls outside the bounds of the full history.
+</ResponseField>
+
+Activates the moment at the given integer offset from the active (present) moment and displays it. Positive values move forward; negative values move backward.
+
+<ParamField path="offset" type="number" required>
+  An integer offset from the active moment. Positive moves forward, negative moves backward.
+</ParamField>
+
+```js
+// Move forward two moments (redo two turns)
+Engine.go(2);
+
+// Move backward four moments (undo four turns)
+Engine.go(-4);
+```
+
+---
+
+### `Engine.goTo(index)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if navigation succeeded; `false` if the index is out of bounds.
+</ResponseField>
+
+Activates the moment at the given absolute index within the full history and displays it. Index `0` is the oldest (bottommost) moment.
+
+<ParamField path="index" type="number" required>
+  An integer index into the full history. `0` is the least recent moment.
+</ParamField>
+
+```js
+// Go to the very first moment
+Engine.goTo(0);
+
+// Go to the tenth moment (index 9)
+Engine.goTo(9);
+```
+
+---
+
+### `Engine.isIdle()`
+
+<ResponseField name="returns" type="boolean">
+  `true` when the engine is in the `Engine.State.Idle` state.
+</ResponseField>
+
+Returns whether the engine is currently idle — not processing any navigation.
+
+```js
+if (Engine.isIdle()) {
+  // safe to do something that requires no active navigation
+}
+
+if (!Engine.isIdle()) {
+  // navigation is in progress
+}
+```
+
+---
+
+### `Engine.isPlaying()`
+
+<ResponseField name="returns" type="boolean">
+  `true` when passage navigation has been triggered and the engine is processing a turn.
+</ResponseField>
+
+Returns whether the engine is currently playing — i.e., passage navigation has been triggered.
+
+```js
+if (Engine.isPlaying()) {
+  // a passage turn is in progress
+}
+```
+
+---
+
+### `Engine.isRendering()`
+
+<ResponseField name="returns" type="boolean">
+  `true` when the incoming passage is actively being rendered to the DOM.
+</ResponseField>
+
+Returns whether the engine is currently in the rendering sub-phase of a playing turn.
+
+```js
+if (Engine.isRendering()) {
+  // the passage is being rendered right now
+}
+```
+
+---
+
+### `Engine.play(passageName [, noHistory])`
+
+<ResponseField name="returns" type="HTMLElement">
+  The rendered passage `HTMLElement`.
+</ResponseField>
+
+Renders and displays the passage with the given name. By default, a new moment is added to the history; passing `true` as the second argument suppresses that.
+
+<ParamField path="passageName" type="string" required>
+  The name of the passage to render and display.
+</ParamField>
+
+<ParamField path="noHistory" type="boolean">
+  When `true`, the passage is displayed without adding a moment to the history.
+</ParamField>
+
+```js
+// Display "Foo" and record a history moment
+Engine.play('Foo');
+
+// Display "Foo" without adding to history
+Engine.play('Foo', true);
+```
+
+---
+
+### `Engine.restart()`
+
+Causes the browser to immediately reload the window, restarting the story from the beginning. All unsaved state is lost without any player confirmation.
+
+<Warning>
+  The player will not be prompted. All unsaved state is permanently lost. Prefer `UI.restart()` to show a confirmation dialog first.
+</Warning>
+
+```js
+Engine.restart();
+```
+
+---
+
+### `Engine.show()`
+
+<ResponseField name="returns" type="HTMLElement">
+  The rendered passage `HTMLElement`.
+</ResponseField>
+
+Renders and displays the active (present) moment's associated passage without adding a new moment to the history. Useful for refreshing the current passage display.
+
+```js
+// Re-render the current passage in place
+Engine.show();
+```

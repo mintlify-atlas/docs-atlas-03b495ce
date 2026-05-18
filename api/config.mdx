@@ -1,0 +1,617 @@
+---
+title: "Config API: Controlling Tea Story Behavior Settings"
+description: "Complete reference for all Config object properties in Tea. Covers audio, history, macros, navigation, passages, saves, and UI behavior."
+---
+
+The `Config` object is a frozen singleton that controls virtually every behavioral aspect of a Tea story. All settings must be written to it from within your project's Story JavaScript section (Twine 2) or a `script`-tagged passage (Twine 1/Twee). Properties are grouped into eight namespaced categories below.
+
+<Note>
+  Config object settings take effect at initialization. Avoid mutating them during gameplay unless a property's documentation explicitly permits it.
+</Note>
+
+<AccordionGroup>
+
+  <Accordion title="General settings">
+
+    ### `Config.addVisitedLinkClass`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Adds the `link-visited` CSS class to internal passage links whose destination has already been visited (i.e., exists within the story history). You must supply your own `.link-visited` styles — none are provided by default.
+
+    <ParamField path="Config.addVisitedLinkClass" type="boolean" default="false">
+      When `true`, internal links to visited passages gain the `link-visited` class.
+    </ParamField>
+
+    ```js
+    Config.addVisitedLinkClass = true;
+    ```
+
+    ```css
+    /* Example visited-link style */
+    .link-visited {
+      color: purple;
+    }
+    ```
+
+    ---
+
+    ### `Config.cleanupWikifierOutput`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Post-processes Wikifier output to convert stacks of `<br>` elements into `<p>` elements where appropriate, producing cleaner HTML markup.
+
+    <ParamField path="Config.cleanupWikifierOutput" type="boolean" default="false">
+      When `true`, the Wikifier's output is sanitized into paragraph-based markup.
+    </ParamField>
+
+    ```js
+    Config.cleanupWikifierOutput = true;
+    ```
+
+    ---
+
+    ### `Config.debug`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Indicates whether Tea is running in test mode, which enables debug views and optional debugging errors. This is automatically set when using Twine 2's *Test* mode, Twine 1's *Test Play From Here*, or Tweego's `--test` flag. You may also set it directly.
+
+    <ParamField path="Config.debug" type="boolean" default="false">
+      When `true`, debug views and optional warnings are enabled.
+    </ParamField>
+
+    <Tip>
+      You can branch on `Config.debug` inside passage markup using `<<if Config.debug>>`.
+    </Tip>
+
+    ```js
+    // Forcibly enable test mode
+    Config.debug = true;
+
+    // Conditional code block in JavaScript
+    if (Config.debug) {
+      // do something debug-related
+    }
+    ```
+
+    ```twee
+    <<if Config.debug>>
+      /* do something debug-related */
+    <</if>>
+    ```
+
+    ---
+
+    ### `Config.enableOptionalDebugging`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Enables optional debugging errors and warnings outside of test mode. For example, when enabled, using `=` (assignment) instead of `==` (comparison) inside `<<if>>` conditions raises an error.
+
+    <ParamField path="Config.enableOptionalDebugging" type="boolean" default="false">
+      When `true`, optional assignment-error checks and similar warnings are active.
+    </ParamField>
+
+    ```js
+    Config.enableOptionalDebugging = true;
+    ```
+
+    ---
+
+    ### `Config.loadDelay`
+
+    **Type:** integer `number` — **Default:** `0`
+
+    Sets a delay (in milliseconds) before the loading screen is dismissed once the document signals readiness. Useful for media-heavy stories on slow-rendering browsers.
+
+    <ParamField path="Config.loadDelay" type="number" default="0">
+      Must be a non-negative integer. Throws `RangeError` otherwise.
+    </ParamField>
+
+    ```js
+    // Hold the loading screen for an extra 2 seconds
+    Config.loadDelay = 2000;
+    ```
+
+  </Accordion>
+
+  <Accordion title="Audio settings">
+
+    ### `Config.audio.pauseOnFadeToZero`
+
+    **Type:** `boolean` — **Default:** `true`
+
+    Determines whether the audio subsystem automatically pauses tracks that have been faded to `0` volume (silent). Disable this if you want faded-out tracks to remain technically playing.
+
+    <ParamField path="Config.audio.pauseOnFadeToZero" type="boolean" default="true">
+      When `true`, tracks faded to zero volume are paused automatically.
+    </ParamField>
+
+    ```js
+    Config.audio.pauseOnFadeToZero = false;
+    ```
+
+    ---
+
+    ### `Config.audio.preloadMetadata`
+
+    **Type:** `boolean` — **Default:** `true`
+
+    Controls whether the audio subsystem attempts to preload track metadata (duration, codec info, etc.) at startup. Disabling this is rarely necessary.
+
+    <ParamField path="Config.audio.preloadMetadata" type="boolean" default="true">
+      When `true`, track metadata is eagerly preloaded for faster playback.
+    </ParamField>
+
+    <Note>
+      It is unlikely you will ever need to set this to `false`.
+    </Note>
+
+    ```js
+    Config.audio.preloadMetadata = false;
+    ```
+
+  </Accordion>
+
+  <Accordion title="History settings">
+
+    ### `Config.history.controls`
+
+    **Type:** `boolean` — **Default:** `true`
+
+    Determines whether the history navigation controls (Backward, Jump To, and Forward buttons) are shown in the UI bar.
+
+    <ParamField path="Config.history.controls" type="boolean" default="true">
+      When `false`, the history buttons are removed from the UI bar. Must be `false` when `Config.history.maxStates` is `1`.
+    </ParamField>
+
+    ```js
+    Config.history.controls = false;
+    ```
+
+    ---
+
+    ### `Config.history.disableDeltas`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Determines whether history states are stored as delta-encoded diffs (`false`) or as full moment snapshots (`true`). Delta encoding is the default and is strongly recommended for most projects.
+
+    <ParamField path="Config.history.disableDeltas" type="boolean" default="false">
+      When `true`, full history snapshots are stored instead of diffs.
+    </ParamField>
+
+    <Warning>
+      Changing this setting invalidates all saves and sessions created under the opposite value. Private class fields in JavaScript are only supported when this is `true`.
+    </Warning>
+
+    <Tip>
+      For the vast majority of projects, leave this at the default value of `false`.
+    </Tip>
+
+    ```js
+    // Disable delta encoding (use full snapshots)
+    Config.history.disableDeltas = true;
+    ```
+
+    ---
+
+    ### `Config.history.maxStates`
+
+    **Type:** integer `number` — **Default:** `40`
+
+    Sets the maximum number of moments the history is allowed to hold. Once exceeded, the oldest moments are dropped. Must be a positive integer.
+
+    <ParamField path="Config.history.maxStates" type="number" default="40">
+      Positive integer. When set to `1`, `Config.history.controls` is automatically forced to `false`.
+    </ParamField>
+
+    <Tip>
+      For game-oriented projects, a value of `1` is strongly recommended.
+    </Tip>
+
+    ```js
+    // Recommended for games — single-moment history
+    Config.history.maxStates = 1;
+
+    // Allow 25 moments
+    Config.history.maxStates = 25;
+    ```
+
+  </Accordion>
+
+  <Accordion title="Macros settings">
+
+    ### `Config.macros.maxLoopIterations`
+
+    **Type:** integer `number` — **Default:** `1000`
+
+    Sets the maximum number of iterations permitted for `<<for>>` macro conditional loops before they are terminated with an error. This guard prevents runaway loops from hanging the browser.
+
+    <ParamField path="Config.macros.maxLoopIterations" type="number" default="1000">
+      Must be a positive integer. Throws `RangeError` otherwise.
+    </ParamField>
+
+    ```js
+    // Raise the ceiling to 5000 iterations
+    Config.macros.maxLoopIterations = 5000;
+    ```
+
+    ---
+
+    ### `Config.macros.typeSkipKey`
+
+    **Type:** `string` — **Default:** `" "` (space)
+
+    Sets the [`KeyboardEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key) value that causes a running `<<type>>` macro to immediately finish typing its content.
+
+    <ParamField path="Config.macros.typeSkipKey" type="string" default=" ">
+      Any valid `KeyboardEvent.key` string value.
+    </ParamField>
+
+    ```js
+    // Change the skip key to Control (Ctrl)
+    Config.macros.typeSkipKey = 'Control';
+    ```
+
+    ---
+
+    ### `Config.macros.typeVisitedPassages`
+
+    **Type:** `boolean` — **Default:** `true`
+
+    Determines whether the `<<type>>` macro animates text on previously visited passages. When `false`, text on revisited passages appears instantly.
+
+    <ParamField path="Config.macros.typeVisitedPassages" type="boolean" default="true">
+      When `false`, `<<type>>` skips the animation on passages already in the history.
+    </ParamField>
+
+    ```js
+    Config.macros.typeVisitedPassages = false;
+    ```
+
+  </Accordion>
+
+  <Accordion title="Navigation settings">
+
+    ### `Config.navigation.override`
+
+    **Type:** `Function` — **Default:** none
+
+    Allows the destination of passage navigation to be intercepted and redirected. The callback receives the original destination passage name and should return either a falsy value (to allow normal navigation) or a passage name string (to redirect).
+
+    <ParamField path="Config.navigation.override" type="Function">
+      Callback receiving `destinationPassage: string`. Return a falsy value to allow navigation, or a passage name string to redirect. Must be a function, `null`, or `undefined`.
+    </ParamField>
+
+    <Tabs>
+      <Tab title="Basic usage">
+        ```js
+        Config.navigation.override = (destinationPassage) => {
+          /* return a passage name or a falsy value */
+        };
+        ```
+      </Tab>
+      <Tab title="Based on a story variable">
+        ```js
+        Config.navigation.override = (destinationPassage) => {
+          var sv = State.variables;
+
+          // Redirect to "You Died" if health drops to zero
+          if (sv.health <= 0) {
+            return 'You Died';
+          }
+        };
+        ```
+      </Tab>
+    </Tabs>
+
+  </Accordion>
+
+  <Accordion title="Passages settings">
+
+    ### `Config.passages.displayTitles`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    Determines whether the current passage name is appended to the story name in the browser tab title bar.
+
+    <ParamField path="Config.passages.displayTitles" type="boolean" default="false">
+      When `true`, the title bar shows `"Story Name: Passage Name"`.
+    </ParamField>
+
+    ```js
+    Config.passages.displayTitles = true;
+    ```
+
+    ---
+
+    ### `Config.passages.nobr`
+
+    **Type:** `boolean` — **Default:** `false`
+
+    When enabled, strips leading/trailing newlines from every rendered passage and collapses internal newline sequences into single spaces. Equivalent to tagging every passage with `nobr`.
+
+    <ParamField path="Config.passages.nobr" type="boolean" default="false">
+      Does not affect `script`- or `stylesheet`-tagged passages or Story JavaScript/CSS sections.
+    </ParamField>
+
+    ```js
+    Config.passages.nobr = true;
+    ```
+
+    ---
+
+    ### `Config.passages.onProcess`
+
+    **Type:** `Function` — **Default:** none
+
+    A callback invoked each time `<Passage>.processText()` is called, enabling custom text transformations. The function receives an abbreviated passage object with `name`, `tags`, and `text` properties. Its return value replaces the passage text.
+
+    <ParamField path="Config.passages.onProcess" type="Function">
+      Receives `{ name, tags, text }`. Must return the post-processed text string. Called before `nobr` processing. Must be a function, `null`, or `undefined`.
+    </ParamField>
+
+    ```js
+    // Replace every instance of "cat" with "dog"
+    Config.passages.onProcess = (p) => p.text.replace(/\bcat(s?)\b/g, 'dog$1');
+    ```
+
+    ---
+
+    ### `Config.passages.start`
+
+    **Type:** `string` — **Default:** user-selected (Twine 2) / `"Start"` (Twine 1/Twee)
+
+    Sets the name of the very first passage displayed when the story loads.
+
+    <ParamField path="Config.passages.start" type="string">
+      Must be a string, `null`, or `undefined`. Throws `TypeError` otherwise.
+    </ParamField>
+
+    ```js
+    Config.passages.start = 'That Other Starting Passage';
+    ```
+
+    ---
+
+    ### `Config.passages.transitionOut`
+
+    **Type:** `string | integer number` — **Default:** none
+
+    Enables outgoing passage transition animations. Accepts either a CSS property name (the element is removed when that transition ends) or an integer millisecond delay (the element is removed after that many ms). Requires corresponding CSS styles.
+
+    <ParamField path="Config.passages.transitionOut" type="string | number">
+      String: CSS property name to watch. Integer: millisecond delay. Must be a string, non-negative integer, `null`, or `undefined`.
+    </ParamField>
+
+    <Tabs>
+      <Tab title="By CSS property">
+        ```js
+        // Remove the outgoing element when its opacity transition ends
+        Config.passages.transitionOut = 'opacity';
+        ```
+      </Tab>
+      <Tab title="By delay">
+        ```js
+        // Remove the outgoing element after 1500ms
+        Config.passages.transitionOut = 1500;
+        ```
+      </Tab>
+      <Tab title="CSS for crossfade">
+        ```css
+        #passages {
+          position: relative;
+        }
+        .passage {
+          left: 0;
+          position: absolute;
+          top: 0;
+          transition: opacity 1s ease;
+        }
+        .passage-out {
+          opacity: 0;
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+  </Accordion>
+
+  <Accordion title="Saves settings">
+
+    ### `Config.saves.descriptions`
+
+    **Type:** `Function` — **Default:** none
+
+    Sets a callback that generates save descriptions. When unset, a brief default description is used. The callback receives the save type and should return a truthy string (used as the description) or a falsy value (falls back to the default).
+
+    <ParamField path="Config.saves.descriptions" type="Function">
+      Receives `saveType: Save.Type`. Return a string or falsy value. Must be a function, `null`, or `undefined`.
+    </ParamField>
+
+    ```js
+    // Use the current passage name as the description
+    Config.saves.descriptions = (saveType) => passage();
+
+    // Include the turn count for all save types
+    Config.saves.descriptions = (saveType) => {
+      const base = `(Turn ${State.turns})`;
+      switch (saveType) {
+        case Save.Type.Auto: return `${base} Auto save…`;
+        case Save.Type.Disk: return `${base} Disk save…`;
+        case Save.Type.Slot: return `${base} Slot save…`;
+      }
+    };
+    ```
+
+    ---
+
+    ### `Config.saves.id`
+
+    **Type:** `string` — **Default:** slugified story name
+
+    Sets the storage ID used to namespace saves for this story. Override this when multiple stories might produce the same slug.
+
+    <ParamField path="Config.saves.id" type="string">
+      Must be a non-empty string. Throws `TypeError` otherwise.
+    </ParamField>
+
+    ```js
+    Config.saves.id = 'a-big-huge-story-part-1';
+    ```
+
+    ---
+
+    ### `Config.saves.isAllowed`
+
+    **Type:** `Function` — **Default:** none
+
+    Controls whether saving is permitted in the current context. When unset, saves are always allowed. The callback receives the save type; returning a truthy value allows the save.
+
+    <ParamField path="Config.saves.isAllowed" type="Function">
+      Receives `saveType: Save.Type`. Return truthy to allow, falsy to disallow. Must be a function, `null`, or `undefined`.
+    </ParamField>
+
+    ```js
+    // Disallow saves on passages tagged with "menu"
+    Config.saves.isAllowed = (saveType) => !tags().includes('menu');
+
+    // Auto saves only on "autosave"-tagged passages; other types unrestricted
+    Config.saves.isAllowed = (saveType) => {
+      if (saveType === Save.Type.Auto) {
+        return tags().includes('autosave');
+      }
+      return true;
+    };
+    ```
+
+    ---
+
+    ### `Config.saves.maxAutoSaves`
+
+    **Type:** integer `number` — **Default:** `0`
+
+    Sets the maximum number of auto saves. A value of `0` disables auto saves entirely. An auto save is attempted each turn by default, so pairing this with `Config.saves.isAllowed` is recommended.
+
+    <ParamField path="Config.saves.maxAutoSaves" type="number" default="0">
+      Integer in the range `0`–`Save.MAX_INDEX + 1`. Throws `TypeError` or `RangeError` otherwise.
+    </ParamField>
+
+    <Warning>
+      Browser-based storage is limited. A range of 1–10 is suggested.
+    </Warning>
+
+    ```js
+    Config.saves.maxAutoSaves = 3;
+    ```
+
+    ---
+
+    ### `Config.saves.maxSlotSaves`
+
+    **Type:** integer `number` — **Default:** `8`
+
+    Sets the maximum number of manual slot saves. A value of `0` disables slot saves.
+
+    <ParamField path="Config.saves.maxSlotSaves" type="number" default="8">
+      Integer in the range `0`–`Save.MAX_INDEX + 1`. Throws `TypeError` or `RangeError` otherwise.
+    </ParamField>
+
+    <Warning>
+      Browser-based storage is limited. A range of 1–10 is suggested.
+    </Warning>
+
+    ```js
+    Config.saves.maxSlotSaves = 4;
+    ```
+
+    ---
+
+    ### `Config.saves.metadata`
+
+    **Type:** `Function` — **Default:** none
+
+    Attaches a `metadata` property to every save. The callback is invoked at save time and receives the save type; its return value (a JSON-serializable `Object`) is stored as save metadata.
+
+    <ParamField path="Config.saves.metadata" type="Function">
+      Receives `saveType: Save.Type`. Must return a JSON-serializable `Object`. Must be a function, `null`, or `undefined`.
+    </ParamField>
+
+    ```js
+    Config.saves.metadata = (saveType) => {
+      const sv = State.variables;
+      return {
+        party : sv.party, // e.g., ['Celes', 'Locke']
+        gold  : sv.gold
+      };
+    };
+    ```
+
+    ---
+
+    ### `Config.saves.version`
+
+    **Type:** `any` — **Default:** none
+
+    Sets the `version` property on all saves. Primarily useful for upgrading stale saves via the `Save.onLoad` API. An integer value is strongly recommended.
+
+    <ParamField path="Config.saves.version" type="any">
+      Any value. An integer is strongly recommended.
+    </ParamField>
+
+    ```js
+    // Strongly recommended: integer version
+    Config.saves.version = 3;
+    ```
+
+  </Accordion>
+
+  <Accordion title="UI settings">
+
+    ### `Config.ui.stowBarInitially`
+
+    **Type:** `boolean | integer number` — **Default:** `800`
+
+    Controls whether the UI bar (sidebar) starts in the stowed (closed) state. A boolean always/never stows it; an integer stows it when the viewport width (in pixels) is less than or equal to that value.
+
+    <ParamField path="Config.ui.stowBarInitially" type="boolean | number" default="800">
+      `true` — always stow. `false` — never stow. Non-negative integer — stow when viewport ≤ that many pixels. Throws `TypeError` otherwise.
+    </ParamField>
+
+    ```js
+    // Always start stowed
+    Config.ui.stowBarInitially = true;
+
+    // Never start stowed
+    Config.ui.stowBarInitially = false;
+
+    // Stow when viewport is 800px or less (default)
+    Config.ui.stowBarInitially = 800;
+    ```
+
+    ---
+
+    ### `Config.ui.updateStoryElements`
+
+    **Type:** `boolean` — **Default:** `true`
+
+    Determines whether the special UI bar passages (`StoryDisplayTitle`, `StoryBanner`, `StorySubtitle`, `StoryAuthor`, `StoryCaption`, `StoryMenu`) are re-rendered on every passage navigation.
+
+    <ParamField path="Config.ui.updateStoryElements" type="boolean" default="true">
+      When `false`, those UI bar elements are rendered once and remain static.
+    </ParamField>
+
+    <Note>
+      `StoryTitle` is intentionally excluded from updates because Tea uses it as a key for storage and saves. Use `StoryDisplayTitle` for a dynamic title.
+    </Note>
+
+    ```js
+    Config.ui.updateStoryElements = false;
+    ```
+
+  </Accordion>
+
+</AccordionGroup>

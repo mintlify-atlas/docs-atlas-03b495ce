@@ -1,0 +1,209 @@
+---
+title: "Audio in Tea: Tracks, Groups, and Playlists"
+description: "A complete guide to Tea's SimpleAudio system — caching tracks, controlling playback, building groups and playlists, fading volume, and preloading audio."
+---
+
+Tea's audio system is built on top of the browser's HTML5 `<audio>` API, abstracted through an internal `SimpleAudio` layer and exposed entirely through macros. You cache named tracks once (typically in `StoryInit`), then control them anywhere in your story with `<<audio>>`, group them with `<<createaudiogroup>>`, arrange them into sequential playlists with `<<createplaylist>>`, and adjust master volume with `<<masteraudio>>`. All audio macros are no-ops in environments where the Web Audio API is unavailable, so your story degrades gracefully.
+
+## Caching Audio Tracks
+
+Before any audio can be played it must be registered with `<<cacheaudio>>`. The first argument is the track ID you'll use to reference the track later; subsequent arguments are one or more source URLs. Tea picks the first format the browser can play.
+
+```twee
+:: StoryInit
+/* Register a background music track (provide multiple formats for compatibility) */
+<<cacheaudio "bgm_forest" "audio/forest.mp3" "audio/forest.ogg">>
+
+/* Register a short sound effect */
+<<cacheaudio "sfx_click" "audio/click.mp3">>
+```
+
+<Note>
+In test mode, if no specified source format is supported by the browser, `<<cacheaudio>>` will return an error so you can catch format problems early.
+</Note>
+
+## Playing, Pausing, and Stopping
+
+`<<audio>>` is the primary playback control macro. Its first argument is a track ID (or group/playlist selector — see below), followed by one or more option keywords.
+
+<Tabs>
+  <Tab title="Basic playback">
+    ```twee
+    /* Start playing */
+    <<audio "bgm_forest" play>>
+
+    /* Pause */
+    <<audio "bgm_forest" pause>>
+
+    /* Stop and reset to the beginning */
+    <<audio "bgm_forest" stop>>
+    ```
+  </Tab>
+  <Tab title="Volume and looping">
+    ```twee
+    /* Set volume (0–1 scale) and loop */
+    <<audio "bgm_forest" volume 0.5 loop play>>
+
+    /* Mute without stopping */
+    <<audio "bgm_forest" mute>>
+
+    /* Unmute */
+    <<audio "bgm_forest" unmute>>
+
+    /* Seek to a specific time in seconds */
+    <<audio "bgm_forest" time 12.5 play>>
+    ```
+  </Tab>
+  <Tab title="Loading and unloading">
+    ```twee
+    /* Force the browser to load the resource now */
+    <<audio "bgm_forest" load>>
+
+    /* Release the browser's hold on the resource */
+    <<audio "bgm_forest" unload>>
+    ```
+  </Tab>
+</Tabs>
+
+### Navigating to a passage when audio ends
+
+The `goto` option navigates to a named passage when the track finishes playing.
+
+```twee
+<<audio "bgm_intro" play goto "Main Menu">>
+```
+
+## Volume Fading
+
+Tea supports smooth volume fading with three options: `fadein`, `fadeout`, and `fadeto`. All fades default to a 5-second duration; use `fadeoverto` to specify a custom duration.
+
+```twee
+/* Fade in over the default 5 seconds */
+<<audio "bgm_forest" fadein>>
+
+/* Fade out over the default 5 seconds */
+<<audio "bgm_forest" fadeout>>
+
+/* Fade to a specific level (0–1) */
+<<audio "bgm_forest" fadeto 0.3>>
+
+/* Fade to a specific level over a custom number of seconds */
+<<audio "bgm_forest" fadeoverto 10 0.3>>
+```
+
+## Creating Audio Groups
+
+Groups let you control multiple tracks at once under a single ID. Define a group with `<<createaudiogroup>>` and list its member tracks with `<<track>>` child tags.
+
+```twee
+:: StoryInit
+<<cacheaudio "bgm_forest"  "audio/forest.mp3">>
+<<cacheaudio "bgm_cave"    "audio/cave.mp3">>
+<<cacheaudio "bgm_village" "audio/village.mp3">>
+
+<<createaudiogroup "music">>
+	<<track "bgm_forest">>
+	<<track "bgm_cave">>
+	<<track "bgm_village">>
+<</createaudiogroup>>
+```
+
+Once defined, use `<<audio>>` with the group ID to act on all member tracks simultaneously:
+
+```twee
+/* Stop all music */
+<<audio "music" stop>>
+
+/* Fade all music out */
+<<audio "music" fadeout>>
+```
+
+Remove a group when it's no longer needed:
+
+```twee
+<<removeaudiogroup "music">>
+```
+
+## Creating Playlists
+
+Playlists play tracks in sequence. Define one with `<<createplaylist>>` and add tracks with `<<track>>` child tags. The `own` option gives each playlist entry its own independent copy of the track's settings.
+
+```twee
+:: StoryInit
+<<createplaylist "dungeon_ambient">>
+	<<track "bgm_cave" volume 0.6>>
+	<<track "bgm_forest" own volume 0.4>>
+<</createplaylist>>
+```
+
+Control a playlist with `<<playlist>>`:
+
+```twee
+/* Play and loop the playlist shuffled */
+<<playlist "dungeon_ambient" loop shuffle play>>
+
+/* Skip to the next track */
+<<playlist "dungeon_ambient" skip>>
+
+/* Stop the playlist */
+<<playlist "dungeon_ambient" stop>>
+```
+
+Remove a playlist when it's no longer needed:
+
+```twee
+<<removeplaylist "dungeon_ambient">>
+```
+
+## Master Audio Control
+
+`<<masteraudio>>` applies settings to all tracks at once — useful for a global mute or volume slider.
+
+```twee
+/* Mute everything */
+<<masteraudio mute>>
+
+/* Unmute everything */
+<<masteraudio unmute>>
+
+/* Set master volume */
+<<masteraudio volume 0.7>>
+
+/* Automatically mute when the browser tab is hidden */
+<<masteraudio muteonhide>>
+
+/* Stop all audio */
+<<masteraudio stop>>
+```
+
+## Preloading Audio with \<\<waitforaudio\>\>
+
+`<<waitforaudio>>` blocks the story's loading screen until all currently registered tracks have loaded. Place it in `StoryInit` after your `<<cacheaudio>>` calls to guarantee audio is ready before the first passage renders.
+
+```twee
+:: StoryInit
+<<cacheaudio "bgm_forest" "audio/forest.mp3">>
+<<cacheaudio "sfx_click"  "audio/click.mp3">>
+<<waitforaudio>>
+```
+
+<Warning>
+`<<waitforaudio>>` loads every registered track simultaneously. On slow connections this can delay the story significantly. Consider preloading only critical tracks or using `<<audio "id" load>>` on individual tracks at appropriate moments instead.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always provide multiple audio formats">
+    Browser support for audio formats varies. Providing both `.mp3` and `.ogg` (or `.webm`) versions ensures the widest compatibility. Tea will pick the first format the current browser supports.
+  </Accordion>
+  <Accordion title="Cache all audio in StoryInit">
+    `<<cacheaudio>>` should be called before any passage tries to play a track. `StoryInit` runs before the first passage renders, making it the correct place to register all tracks, groups, and playlists.
+  </Accordion>
+  <Accordion title="Use groups and playlists to avoid repetition">
+    Rather than calling `<<audio "track1" stop>>`, `<<audio "track2" stop>>`, etc., on every passage transition, create a group called `"music"` or `"ambience"` and call `<<audio "music" stop>>` once.
+  </Accordion>
+  <Accordion title="Respect autoplay restrictions">
+    Browsers block audio autoplay until the user interacts with the page. Tea's `playWhenAllowed()` mechanism queues playback and fires it on the first user interaction. Avoid assuming audio is playing immediately after `<<audio "id" play>>` on the very first passage.
+  </Accordion>
+</AccordionGroup>

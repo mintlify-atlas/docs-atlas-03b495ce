@@ -1,0 +1,156 @@
+---
+title: "Installing Tea in Twine 2, Tweego, and Twine 1/Twee"
+description: "Add Tea as your story format in Twine 2 (local or CDN), Tweego, and Twine 1/Twee. Download a prebuilt release from GitHub or build from source."
+---
+
+Tea is distributed as a single `format.js` file. You can grab a prebuilt release from the [GitHub releases page](https://github.com/pompom454/tea/releases) or [build it from source](/development). Once you have the file, follow the steps below for your authoring tool.
+
+<Tabs>
+  <Tab title="Twine 2">
+    Twine 2 (version 2.1 and later) ships with a bundled story format, but you can add Tea alongside it. There are two ways: install a local copy you downloaded, or point Twine 2 at a CDN URL.
+
+    <Tabs>
+      <Tab title="Local install">
+        <Steps>
+          <Step title="Download the release archive">
+            Go to the [Tea releases page](https://github.com/pompom454/tea/releases) and download the latest ZIP archive for Twine 2. There are separate archives for Twine ≥2.1 and Twine 2.0 — make sure you pick the one that matches your version.
+          </Step>
+          <Step title="Extract the archive">
+            Unzip the archive to a stable location on your computer. Keep all the files together inside the extracted directory; note the full path to `format.js`.
+          </Step>
+          <Step title="Open the Formats dialog">
+            Launch Twine 2 and click **Formats** in the sidebar.
+          </Step>
+          <Step title="Add the format">
+            In the dialog that opens, click the **Add a New Format** tab. Paste a `file://` URL pointing to `format.js` into the text box and click **+Add**.
+
+            Construct the URL from the path you noted in step 2:
+
+            <CodeGroup>
+
+            ```text Unix / macOS
+            file:///home/soandso/Twine/StoryFormats/tea/format.js
+            ```
+
+            ```text Windows
+            file:///C:/Users/soandso/Documents/Twine/StoryFormats/tea/format.js
+            ```
+
+            </CodeGroup>
+
+            <Note>
+              On Unix-like systems, if your path contains shell escape sequences, convert them to percent-encoded form before pasting (for example, a space becomes `%20`).
+            </Note>
+          </Step>
+          <Step title="Select Tea as the story format">
+            Open your story in Twine 2, click **Story** in the toolbar, then **Change Format**, and select Tea.
+          </Step>
+        </Steps>
+      </Tab>
+      <Tab title="CDN (online)">
+        If you are using the browser-based version of Twine 2 or simply prefer not to manage a local file, you can load Tea directly from the jsDelivr CDN. This method requires Twine 2 version ≥2.1.
+
+        <Steps>
+          <Step title="Open the Formats dialog">
+            In Twine 2, click **Formats** in the sidebar.
+          </Step>
+          <Step title="Add the CDN URL">
+            Click the **Add a New Format** tab, paste the URL below into the text box, and click **+Add**.
+
+            ```text
+            https://cdn.jsdelivr.net/gh/pompom454/tea/dist/format.js
+            ```
+
+            <Tip>
+              The jsDelivr CDN serves the latest release automatically. To pin to a specific version, use a tagged URL from the [Tea releases page](https://github.com/pompom454/tea/releases).
+            </Tip>
+          </Step>
+          <Step title="Select Tea as the story format">
+            Open your story, click **Story** → **Change Format**, and select Tea.
+          </Step>
+        </Steps>
+      </Tab>
+    </Tabs>
+  </Tab>
+  <Tab title="Tweego">
+    [Tweego](http://www.motoslave.net/tweego/) is a command-line Twee compiler. It discovers story formats from a formats directory on your file system.
+
+    <Steps>
+      <Step title="Download the release archive">
+        Go to the [Tea releases page](https://github.com/pompom454/tea/releases) and download the latest ZIP archive.
+      </Step>
+      <Step title="Locate your Tweego formats directory">
+        Tweego looks for story formats in a `storyformats` directory relative to the Tweego binary, or in a location specified by the `TWEEGO_PATH` environment variable. See [Tweego's documentation](http://www.motoslave.net/tweego/docs/) for the exact search paths on your platform.
+      </Step>
+      <Step title="Install Tea into the formats directory">
+        Move the extracted archive directory (containing `format.js` and any other bundled files) into your Tweego formats directory. Keep the files together inside their directory.
+      </Step>
+      <Step title="Compile your story with Tea">
+        Pass the `--format` flag to Tweego using the name of the Tea directory:
+
+        ```bash
+        tweego --format=tea -o story.html story.twee
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Twine 1 / Twee">
+    <Steps>
+      <Step title="Download the release archive">
+        Go to the [Tea releases page](https://github.com/pompom454/tea/releases) and download the latest ZIP archive for Twine 1/Twee.
+      </Step>
+      <Step title="Open the targets directory">
+        Navigate to your Twine 1/Twee installation directory and open the `targets` subdirectory inside it.
+      </Step>
+      <Step title="Extract the archive into targets">
+        Move the downloaded archive into the `targets` directory and extract it there, including the directory itself (do not extract only the contents).
+
+        After extraction you should have a `tea` directory inside `targets`, containing files such as `header.html` and `tea.py`.
+
+        <Warning>
+          Due to a flaw in Twine 1/Twee v1.4.2, the `.py` file inside the directory **must** share the same name as the directory. For example, if the directory is named `tea`, the Python file must be `tea.py`. The files in the release archive are already named correctly — avoid renaming them.
+        </Warning>
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Build from source
+
+If you prefer to build Tea yourself rather than use a prebuilt release, you need [Node.js ≥18.3.0](https://nodejs.org/) and [Git](https://git-scm.com/).
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/pompom454/tea.git
+    cd tea
+    ```
+  </Step>
+  <Step title="Check out the branch you want">
+    The repository has two main branches: `develop` (active development) and `master` (stable releases). Switch to whichever you need:
+
+    ```bash
+    git checkout master
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+  <Step title="Run the build">
+    ```bash
+    node build.js
+    ```
+
+    On success, both the Twine 1 and Twine 2 versions of the format are written to the `build` directory.
+
+    <Tip>
+      Run `node build.js --help` to see additional options such as debug builds or limiting output to a single Twine version.
+    </Tip>
+  </Step>
+</Steps>
+
+<Note>
+  Tea's development dependencies are occasionally updated. If you get build errors, run `npm update --save -D` to refresh them. In persistent cases, run `npm uninstall` followed by `npm install`.
+</Note>

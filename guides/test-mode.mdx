@@ -1,0 +1,103 @@
+---
+title: "Using Test Mode and the Debug Bar in Tea"
+description: "Enable Tea's test mode to surface debug views for every macro, watch story variables live, navigate history, and toggle visual debugging on and off."
+---
+
+Test mode is Tea's built-in debugging environment. When active, every macro invocation — and some non-macro markup such as links and images — is wrapped in an additional HTML element called a **debug view**. Debug views make the underlying code visible on screen and can be hovered over to reveal additional information about what was executed. In versions ≥2.23.0 the debugging interface also includes a persistent **debug bar** offering variable watches and arbitrary history navigation.
+
+<Warning>
+Because debug views inject additional HTML elements into the DOM, some nested markup and CSS selectors may break in test mode. This only affects test mode and does not indicate a bug in your story.
+</Warning>
+
+## Enabling Test Mode
+
+<Tabs>
+  <Tab title="Tweego">
+    Pass the test flag when compiling:
+
+    ```bash
+    tweego -t -o output.html src/
+    # or
+    tweego --test -o output.html src/
+    ```
+  </Tab>
+  <Tab title="Twine 2 (≥v2.2)">
+    - **From the Stories screen:** click the story's gear menu and select *Test Story*.
+    - **From the story editor:** click the *Test* button on the right side of the bottom bar.
+    - **Starting from a specific passage:** hover over a passage and click the play/bug icon.
+  </Tab>
+  <Tab title="Twine 2 (<v2.2)">
+    - **From the Stories screen:** click the story's gear menu and select *Test Play*.
+    - **From the story editor:** click the *Test* button on the right side of the bottom bar.
+    - **Starting from a specific passage:** hover over a passage and select the bug icon.
+  </Tab>
+  <Tab title="Twine 1">
+    Right-click any passage and select *Test Play From Here*. Due to a limitation in Twine 1, the *Build → Test Play* menu item cannot trigger test mode. Use *Test Play From Here* on the `Start` passage as a workaround.
+  </Tab>
+</Tabs>
+
+### Enabling test mode manually
+
+You can force test mode on at runtime by setting `Config.debug` to `true` in your Story JavaScript:
+
+```js
+Config.debug = true;
+```
+
+This is useful for enabling debug views conditionally (e.g., only when a specific query parameter is present) or for testing in a compiled output without recompiling.
+
+## The Debug Bar (≥v2.23.0)
+
+In Tea ≥v2.23.0 a debug bar appears in the bottom-right corner of the page. It provides three tools:
+
+### Variable watch panel
+
+The watch panel shows the current value of any story or temporary variable you add to it.
+
+- **Toggle the panel** — click the *Watch* button.
+- **Add a watch** — type the variable name (including the `$` or `_` sigil) into the *Add* field and press Enter or click the `+` button. Depending on your browser, a list of all current variables may appear as you type.
+- **Watch all current variables** — click the magic wand button.
+- **Delete a single watch** — click the trash icon next to its name.
+- **Delete all watches** — click the trash-can button.
+
+### Debug views toggle
+
+Click the *Views* toggle button in the debug bar to show or hide the inline debug views without leaving the page.
+
+### History navigation
+
+The *Turn* select field lets you jump directly to any moment within the available history, equivalent to using the UI bar's forward/backward buttons but for any arbitrary position in the history.
+
+## Debug Views (≤v2.22.0)
+
+In older versions of Tea, debug views are the primary debugging tool. They wrap every macro invocation in a visible HTML element showing the macro's name and arguments.
+
+Toggle them on and off using the *Debug View* button at the top of the UI bar. If you've removed or hidden the UI bar, you can wire up your own toggle:
+
+```twee
+<<button "Toggle Debug Views">><<script>>DebugView.toggle()<</script>><</button>>
+```
+
+<Note>
+The button above only toggles the visibility of existing views. Test mode itself must still be enabled first for debug views to be generated at all.
+</Note>
+
+## Using \<\<script\>\> and \<\<run\>\> for Testing
+
+During development you can execute arbitrary JavaScript inline with `<<script>>` or run TwineScript expressions with `<<run>>`. These are useful for setting up specific variable states without navigating through many passages.
+
+```twee
+:: Debug Setup
+/* Force a specific game state for testing */
+<<run $playerLevel = 10, $inventory = ["sword", "shield"], $bossDefeated = false>>
+
+/* Or use <<script>> for more complex JavaScript */
+<<script>>
+    State.variables.questLog = { main: "started", sideA: "done" };
+    console.log("Debug state set:", State.variables);
+<</script>>
+```
+
+<Tip>
+Tag a dedicated setup passage with a custom tag (e.g., `debug`) and use `Config.passages.onProcess` or passage events to skip it in non-test builds. Alternatively, wrap your debug setup in `<<if Config.debug>>…<</if>>` so it only runs when test mode is active.
+</Tip>

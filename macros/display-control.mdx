@@ -1,0 +1,417 @@
+---
+title: "Display & Control Flow Macros in the Tea Story Format"
+description: "Tea's output and control macros: print, include, if/elseif/else, for loops, switch/case, goto, repeat, timed, type, do/redo, silent, nobr, and done."
+---
+
+Display and control-flow macros handle everything from printing expressions to branching story logic, iterating over collections, scheduling delayed output, and navigating between passages. This page covers all of them in one place.
+
+---
+
+## Output macros
+
+### `<<print expression>>`
+
+Outputs a string representation of the evaluated expression. Markup in the result is processed normally.
+
+```twee
+→ Assuming $gold is 5
+You found <<print $gold>> gold.           → You found 5 gold.
+
+→ Assuming $weight is 74.6466266
+You weigh <<print $weight.toFixed(2)>> kg. → You weigh 74.65 kg.
+```
+
+### `<<= expression>>`
+
+Alias for `<<print>>`. Outputs the result of the expression with markup processing.
+
+```twee
+You found <<= $gold>> gold.
+You weigh <<= $weight.toFixed(2)>> kg.
+```
+
+### `<<- expression>>`
+
+Like `<<print>>` but also HTML-encodes the output, making it safe to print user-supplied or untrusted strings without injecting markup.
+
+```twee
+→ Encodes <, >, &, and other HTML special characters
+User said: <<- $playerInput>>
+```
+
+<Tip>
+For simple variable output you don't need any print macro at all—just include the variable directly in passage text and Tea will print it automatically via naked variable markup: `You have $gold gold.`
+</Tip>
+
+---
+
+## `<<include passageName [elementName]>>`
+
+Outputs the contents of another passage in-place, optionally wrapping it in an HTML element. Can be called with a plain passage name string or with link markup.
+
+```twee
+<<include "Go West">>
+<<include [[Go West]]>>
+
+→ Wrap in a <div> (gets a class derived from the passage name)
+<<include "Go West" "div">>
+<<include [[Go West]] "div">>
+```
+
+<ParamField body="passageName" type="string" required>
+  The name of the passage to include. May also be written as link markup `[[Passage Name]]` (regular form only, no setters).
+</ParamField>
+<ParamField body="elementName" type="string">
+  Optional HTML element tag to wrap the included passage in. The element receives a class derived from the passage name.
+</ParamField>
+
+---
+
+## `<<nobr>> … <</nobr>>`
+
+Strips all leading and trailing newlines from the block's output, then replaces any remaining internal newline sequences with single spaces. Useful for keeping multi-line macro blocks from introducing unwanted blank lines.
+
+```twee
+→ Given $feeling eq "blue", outputs: I'd like a blueberry pie.
+I'd like a <<nobr>>
+<<if $feeling eq "blue">>
+blueberry
+<<else>>
+cherry
+<</if>>
+<</nobr>> pie.
+```
+
+---
+
+## `<<silent>> … <</silent>>`
+
+Executes its contents but discards all output (errors are still shown). Useful for setting up timed loops or other side-effectful code that should produce no visible text.
+
+```twee
+<<set $seconds to 10>>\
+Countdown: <span id="countdown">$seconds seconds remaining</span>!\
+<<silent>>
+    <<repeat 1s>>
+        <<set $seconds to $seconds - 1>>
+        <<if $seconds gt 0>>
+            <<replace "#countdown">>$seconds seconds remaining<</replace>>
+        <<else>>
+            <<replace "#countdown">>Too Late<</replace>>
+            <<stop>>
+        <</if>>
+    <</repeat>>
+<</silent>>
+```
+
+---
+
+## `<<type speed [options]>> … <</type>>`
+
+Outputs its contents one code point at a time, simulating a teletype or typewriter effect. Can type links, markup, and other macros.
+
+```twee
+<<type 40ms>>
+    Type every 40 milliseconds.  Includes [[links]] and ''markup''!
+<</type>>
+
+<<type 40ms start 2s>>
+    Start typing after a 2-second delay.
+<</type>>
+
+<<type 40ms keep>>
+    Keep the cursor visible after typing finishes.
+<</type>>
+
+<<type 40ms none>>
+    No cursor at all.
+<</type>>
+
+<<type 40ms class "intro-text" element "p" id "opener">>
+    Custom container class, element, and ID.
+<</type>>
+
+<<type 40ms skipkey "Control">>
+    Use Ctrl to skip to the end immediately.
+<</type>>
+
+→ Values of 0s or 0ms skip the animation entirely
+<<type 0ms>>Already done.<</type>>
+```
+
+<ParamField body="speed" type="CSS time" required>
+  Rate at which characters are typed. Valid CSS time values: `40ms`, `1s`, etc. `0s`/`0ms` causes immediate completion. Values of `20–60ms` are a good starting range.
+</ParamField>
+<ParamField body="start delay" type="CSS time">
+  Optional. Delay before typing begins. Defaults to `400ms`.
+</ParamField>
+<ParamField body="class classes" type="string">
+  Optional. Space-separated class names added to the typing container.
+</ParamField>
+<ParamField body="element tag" type="string">
+  Optional. HTML element used as the typing container. Defaults to `div`.
+</ParamField>
+<ParamField body="id ID" type="string">
+  Optional. Unique ID assigned to the typing container.
+</ParamField>
+<ParamField body="keep" type="keyword">
+  Optional. Keeps the cursor visible after typing completes.
+</ParamField>
+<ParamField body="none" type="keyword">
+  Optional. Suppresses the cursor entirely.
+</ParamField>
+<ParamField body="skipkey key" type="string">
+  Optional. Key name that causes typing to complete immediately. Defaults to `Config.macros.typeSkipKey`.
+</ParamField>
+
+<Warning>
+Nesting `<<type>>` with other macros that inject content asynchronously (e.g. `<<linkreplace>>`, `<<timed>>`) may produce unexpected results. Test thoroughly when combining them.
+</Warning>
+
+---
+
+## `<<do [tag tags] [element tag]>> … <</do>>` and `<<redo [tags]>>`
+
+`<<do>>` renders its contents and re-renders them whenever a matching `<<redo>>` command is received. Use it to create reactive display regions that update in response to state changes.
+
+```twee
+<<set $money to 10>>
+
+''Money:'' <<do>>$money<</do>>
+
+<<link "Earn 10">>
+    <<set $money += 10>>
+    <<redo>>
+<</link>>
+```
+
+```twee
+→ Tagged <<do>> blocks — only update the targeted ones
+''Foo:'' <<do tag "foo foobar">><<= ["fee", "fie", "foe"].random()>><</do>>
+''Bar:'' <<do tag "bar foobar">><<= ["alfa", "bravo", "charlie"].random()>><</do>>
+
+<<link "Update foo">><<redo "foo">><</link>>
+<<link "Update bar">><<redo "bar">><</link>>
+<<link "Update both">><<redo "foobar">><</link>>
+```
+
+<ParamField body="tag tags" type="string">
+  Optional. Space-separated tag names. When `<<redo>>` is called with matching tags, only tagged `<<do>>` blocks respond.
+</ParamField>
+<ParamField body="element tag" type="string">
+  Optional. HTML element used as the content container. Defaults to `span`.
+</ParamField>
+
+---
+
+## `<<if conditional>> … [<<elseif>>] … [<<else>>] … <</if>>`
+
+Executes the first branch whose condition evaluates to `true`. Supports any number of `<<elseif>>` clauses and an optional final `<<else>>`.
+
+```twee
+<<if $daysUntilLoanDue is 0>><<include "Panic">><</if>>
+
+<<if $cash lt 5>>
+    I'm sorry, but you don't have enough for the pie.
+<<else>>
+    <<set $cash -= 5, $hasMeatPie = true>>
+    One meat pie, coming right up!
+<</if>>
+
+<<if $affection gte 75>>
+    I love you!
+<<elseif $affection gte 50>>
+    I like you.
+<<elseif $affection gte 25>>
+    I'm okay with you.
+<<else>>
+    Get out of my face.
+<</if>>
+```
+
+---
+
+## `<<for>> … <</for>>`, `<<break>>`, `<<continue>>`
+
+Repeatedly executes its body. Three forms are available:
+
+<AccordionGroup>
+  <Accordion title="Conditional-only form">
+    ```twee
+    → Loops while the condition is true
+    <<for _i lt 5>>
+        Count: _i
+        <<set _i++>>
+    <</for>>
+    ```
+  </Accordion>
+  <Accordion title="3-part conditional form">
+    ```twee
+    <<set $pies to ["Apple", "Blueberry", "Cherry", "Pecan"]>>
+
+    <<for _i to 0; _i lt $pies.length; _i++>>
+    <<print _i + 1>>. $pies[_i]
+    <</for>>
+    ```
+  </Accordion>
+  <Accordion title="Range form — array">
+    ```twee
+    <<set $pies to ["Apple", "Blueberry", "Cherry", "Pecan"]>>
+
+    <<for _i, _name range $pies>>
+    <<print _i + 1>>. _name
+    <</for>>
+    ```
+  </Accordion>
+  <Accordion title="Range form — integer">
+    ```twee
+    → Iterates 0 through 4 (5 iterations total)
+    <<for _value range 5>>
+    <<print _value + 1>>.
+    <</for>>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+Use `<<break>>` to exit the loop immediately, or `<<continue>>` to skip to the next iteration:
+
+```twee
+<<for _i, _item range $inventory>>
+    <<if _item is "cursed amulet">><<continue>><</if>>
+    <<if _i gte 5>><<break>><</if>>
+    - _item
+<</for>>
+```
+
+<Note>
+The range form supports arrays, sets, maps, generic objects, integers, and strings. Loop variables are perfect candidates for temporary `_variables` (e.g. `_i`, `_name`). The maximum iterations for conditional forms is configurable via `Config.macros.maxLoopIterations`.
+</Note>
+
+---
+
+## `<<switch expression>> … <</switch>>`
+
+Evaluates an expression and executes the first `<<case>>` whose value list contains a match. An optional `<<default>>` case runs when no cases match; it must be last.
+
+```twee
+→ Without a default case
+<<switch $hairColor>>
+<<case "red" "auburn">>
+    You ginger.
+<<case "black" "brown">>
+    Dark haired, eh?
+<<case "blonde">>
+    You may have more fun.
+<</switch>>
+
+→ With a default case
+<<switch visited()>>
+<<case 1>>
+    You gaze in wonder at the magnificent waterfall for the first time.
+<<case 2 3>>
+    You once again gaze upon the waterfall.
+<<case 4 5>>
+    Yet again, you find yourself looking at the waterfall.
+<<default>>
+    Oh, look. It's that waterfall again. Meh.
+<</switch>>
+```
+
+---
+
+## `<<goto passageName>>`
+
+Immediately forwards the player to the named passage. Accepts a plain name or link markup.
+
+```twee
+<<goto "Somewhere over yonder">>
+<<goto $selectedPassage>>
+<<goto [[Somewhere over yonder]]>>
+<<goto [[$selectedPassage]]>>
+```
+
+<Warning>
+`<<goto>>` does **not** stop passage rendering at the point where it is called—code after it in the same passage will still execute. Automatic use of `<<goto>>` (i.e. no player interaction) creates junk history moments. Consider `Config.navigation.override` for transparent redirects instead.
+</Warning>
+
+---
+
+## `<<repeat delay [transition|t8n]>> … <</repeat>>` and `<<stop>>`
+
+Repeatedly executes its body after the specified delay, reinserting the output each time. Use `<<stop>>` inside the body to halt the repetition.
+
+```twee
+<<set $seconds to 10>>\
+Countdown: <span id="countdown">$seconds seconds remaining</span>!\
+<<silent>>
+    <<repeat 1s>>
+        <<set $seconds to $seconds - 1>>
+        <<if $seconds gt 0>>
+            <<replace "#countdown">>$seconds seconds remaining<</replace>>
+        <<else>>
+            <<replace "#countdown">>Too Late<</replace>>
+            <<stop>>
+        <</if>>
+    <</repeat>>
+<</silent>>
+```
+
+<ParamField body="delay" type="CSS time" required>
+  How long to wait between executions. Minimum `40ms`. Accepts CSS time values: `1s`, `500ms`, etc.
+</ParamField>
+<ParamField body="transition / t8n" type="keyword">
+  Optional. Applies a CSS transition to each new insertion.
+</ParamField>
+
+---
+
+## `<<timed delay [transition|t8n]>> … [<<next [delay]>>] … <</timed>>`
+
+Executes its body once after the specified delay. Additional `<<next>>` child blocks may be chained to create sequenced timed events.
+
+```twee
+→ Append text after 5 seconds with a transition
+I want to go to…<<timed 5s t8n>> WONDERLAND!<</timed>>
+
+→ Replace an element after 10 seconds
+I like green <span id="eggs">eggs</span> and ham!\
+<<timed 10s>><<replace "#eggs">>pancakes<</replace>><</timed>>
+
+→ Sequential insertions at 2-second intervals
+<<timed 2s>>Hi! Ho!
+<<next>>Hi! Ho!
+<<next>>It's off to work we go!
+<</timed>>
+
+→ Variable-length interval
+I'll have <span id="drink">some water</span>, please.\
+<<timed _delay>><<replace "#drink">>a glass of milk<</replace>>\
+<<next>><<replace "#drink">>a can of soda<</replace>>\
+<<next>><<replace "#drink">>a cup of coffee<</replace>>\
+<</timed>>
+```
+
+<ParamField body="delay (timed)" type="CSS time" required>
+  Delay before the first execution. Minimum `40ms`.
+</ParamField>
+<ParamField body="delay (next)" type="CSS time">
+  Optional. Delay for this `<<next>>` step. If omitted, reuses the previous delay.
+</ParamField>
+
+---
+
+## `<<done>> … <</done>>`
+
+Executes its contents after the page has finished rendering and the engine is idle. Required when you need to manipulate elements that are part of the _current_ passage (they don't exist on the page until rendering is complete).
+
+```twee
+@@#spy;@@
+
+<<done>>
+    <<replace "#spy">>I spy with my little eye, a crab rangoon.<</replace>>
+<</done>>
+```
+
+<Tip>
+`<<done>>` runs once per passage render. For code that should run on every passage navigation, use the `PassageDone` special passage or a `:passagedisplay` event listener instead.
+</Tip>

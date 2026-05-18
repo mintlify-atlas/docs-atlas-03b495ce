@@ -1,0 +1,169 @@
+---
+title: "Migration Guide: Updating Your Tea Story Code"
+description: "Breaking changes and deprecated APIs by version — covers ≥2.37.0, ≥2.36.0, and ≥2.31.0 with the most critical removals, renames, and behavior changes."
+---
+
+Most Tea/SugarCube 2 version upgrades require no code changes at all. When changes are needed, they are usually elective — deprecated APIs that still work but should be updated when convenient. A smaller number of upgrades include **breaking changes** that must be addressed immediately. This guide summarizes the most impactful changes per version, focusing on the three most recent significant releases.
+
+<Note>
+The majority of newer SugarCube versions do not have any changes that require an update. For those that do, updates are normally completely elective. Sometimes there are breaking changes that must be addressed immediately — these are marked **BREAKING** below.
+</Note>
+
+<AccordionGroup>
+  <Accordion title="Updating to ≥2.37.0 from a lesser version">
+    <Warning>
+      This version contains **breaking changes** that must be addressed immediately, as well as elective deprecations. All breaking changes are marked below.
+    </Warning>
+
+    ### Legacy APIs removed (all BREAKING)
+
+    Several long-deprecated v1 compatibility APIs have been removed entirely:
+
+    | Old API | Replacement |
+    |---|---|
+    | `browser` | `Browser` |
+    | `config` | `Config` |
+    | `has` | `Has` |
+    | `History` | `State` |
+    | `state` | `State` |
+    | `tale` | `Story` |
+    | `TempVariables` | `State.temporary` |
+
+    ### Array API (all BREAKING)
+
+    | Method | Change |
+    |---|---|
+    | `Array.random()` | Removed static method. Use `<Array>.random()` instance method. |
+    | `<Array>.contains()` | Polyfill removed. Use `<Array>.includes()`. |
+    | `<Array>.containsAll()` | Removed. Use `<Array>.includesAll()`. |
+    | `<Array>.containsAny()` | Removed. Use `<Array>.includesAny()`. |
+    | `<Array>.flatten()` | Removed. Use `<Array>.flat(Infinity)`. |
+
+    ### Config API deprecations
+
+    | Property | Change |
+    |---|---|
+    | `Config.macros.ifAssignError` | Deprecated. Use `Config.enableOptionalDebugging`. |
+    | `Config.passages.descriptions` | Deprecated. Use `Config.saves.descriptions`. |
+    | `Config.saves.autoload` | Deprecated. The default UI now includes a *Continue* button. Use `Save.browser.continue()` if replacing the default UI. |
+    | `Config.saves.autosave` | Deprecated. Use `Config.saves.maxAutoSaves` and `Config.saves.isAllowed`. |
+    | `Config.saves.isAllowed` | Parameters passed to the assigned function have changed. Review documentation. |
+    | `Config.saves.slots` | Deprecated. Use `Config.saves.maxSlotSaves`. |
+    | `Config.saves.tryDiskOnMobile` | Deprecated. Saving to disk on mobile is now unconditionally enabled. |
+
+    ### Dialog API
+
+    | Method | Change |
+    |---|---|
+    | `Dialog.addClickHandler()` | **BREAKING:** Removed. |
+    | `Dialog.setup()` | Deprecated. Use `Dialog.create()`. |
+
+    ### Macro library (BREAKING removals)
+
+    | Macro | Replacement |
+    |---|---|
+    | `<<click>>` | `<<link>>` |
+    | `<<display>>` | `<<include>>` |
+    | `<<forget>>` | `forget()` function |
+    | `<<remember>>` | `memorize()` / `recall()` functions |
+    | `<<setplaylist>>` | `<<createplaylist>>` |
+    | `<<stopallaudio>>` | `<<masteraudio>>` |
+
+    `<<actions>>` and `<<choice>>` are deprecated (not yet removed).
+
+    ### MacroContext API deprecations
+
+    | Method | Replacement |
+    |---|---|
+    | `<MacroContext>.contextHas()` | `<MacroContext>.contextSome()` |
+    | `<MacroContext>.contextSelect()` | `<MacroContext>.contextFind()` |
+    | `<MacroContext>.contextSelectAll()` | `<MacroContext>.contextFilter()` |
+
+    ### Save API (BREAKING and deprecations)
+
+    | Member | Change |
+    |---|---|
+    | `Save.get()` | **BREAKING:** Removed. Use `Save.browser.auto.entries()` / `Save.browser.slot.entries()`. |
+    | `Save.clear()` | Deprecated. Use `Save.browser.clear()`. |
+    | `Save.ok()` | Deprecated. Use `Save.browser.isEnabled()`. |
+    | `Save.export()` | Deprecated. Use `Save.disk.save()`. |
+    | `Save.import()` | Deprecated. Use `Save.disk.load()`. |
+    | `Save.serialize()` | Deprecated. Use `Save.base64.save()`. |
+    | `Save.deserialize()` | Deprecated. Use `Save.base64.load()`. |
+    | `Save.autosave.*` | All methods deprecated in favor of `Save.browser.auto.*`. |
+    | `Save.slots.*` | All methods deprecated in favor of `Save.browser.slot.*`. |
+
+    ### State API (all BREAKING)
+
+    `State.backward()`, `State.display()`, `State.forward()`, `State.initPRNG()`, `State.play()`, `State.restart()`, and `State.show()` have all been removed.
+
+    ### Story API deprecations
+
+    | Property | Replacement |
+    |---|---|
+    | `Story.domId` | `Story.id` |
+    | `Story.title` | `Story.name` |
+
+    ### StoryInterface special passage (possibly BREAKING)
+
+    The default UI's `<div id="story" role="main">` container is now a core part of the base UI. Custom `StoryInterface` markup may no longer contain a `#story` element — it will be placed inside the core `#story` container rather than directly in `<body>`. Review any CSS selectors using the child combinator with `body` as parent (e.g., `body > …`).
+
+    ### String API (BREAKING)
+
+    `<String>.readBracketedList()` has been removed.
+
+    ### UI API (all BREAKING)
+
+    `UI.addClickHandler()`, `UI.body()`, `UI.close()`, `UI.isOpen()`, `UI.open()`, `UI.resize()`, `UI.setStoryElements()`, `UI.setup()`, `UI.stow()`, and `UI.unstow()` have all been removed. Use the `Dialog` API directly for dialog operations.
+
+    `UI.buildAutoload()` has been deprecated.
+
+    ### JSON API
+
+    `JSON.reviveWrapper()` has been deprecated. Use `Serial.createReviver()`.
+
+    ### Scripting API (BREAKING)
+
+    The undocumented `is not` → `isnot` operator mapping in `Scripting.desugar()` has been removed.
+
+    `Scripting.parse()` has been deprecated in favor of `Scripting.desugar()`.
+  </Accordion>
+
+  <Accordion title="Updating to ≥2.36.0 from a lesser version">
+    All changes in this version are **elective** — you may address them at your leisure.
+
+    ### Config API
+
+    | Property | Change |
+    |---|---|
+    | `Config.history.maxStates` | Updated to disallow unlimited states. You must now specify a finite number. |
+    | `Config.saves.onLoad` | Deprecated. Use the `Save` Events API: `Save.onLoad.add()`. |
+    | `Config.saves.onSave` | Deprecated. Use the `Save` Events API: `Save.onSave.add()`. |
+
+    ### Macro library
+
+    The special `$args` story variable inside `<<widget>>` has been deprecated in favor of the `_args_` temporary variable. Update any widgets that read `$args` to use `_args_` instead:
+
+    ```twee
+    /* Old (deprecated) */
+    <<widget "myWidget">>
+        The first arg is $args[0].
+    <</widget>>
+
+    /* New */
+    <<widget "myWidget">>
+        The first arg is _args_[0].
+    <</widget>>
+    ```
+  </Accordion>
+
+  <Accordion title="Updating to ≥2.31.0 from a lesser version">
+    <Warning>
+      All changes in this version are **breaking changes** that must be addressed immediately.
+    </Warning>
+
+    ### Parser library
+
+    The HTML tag parser has been updated to **disallow combining the evaluation attribute directive with the `data-setter` content attribute**. They were never supposed to be combined, and the parser now enforces this. Remove any markup that uses both together.
+  </Accordion>
+</AccordionGroup>

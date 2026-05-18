@@ -1,0 +1,152 @@
+---
+title: "UI API: Open built-in dialogs and update the story UI"
+description: "Open the built-in alert, restart, saves, and settings dialogs, and trigger a refresh of dynamic UI sections in the Tea story interface."
+---
+
+The `UI` API provides methods for opening the dialogs that Tea builds into every story—alert messages, the restart prompt, saves management, and settings—as well as a method for forcing a refresh of the dynamically rendered sections of the UI outside of normal passage navigation.
+
+## UI.alert()
+
+Opens the built-in alert dialog and displays a message to the player.
+
+```
+UI.alert(message [, options [, closeFn]])
+```
+
+<ParamField path="message" type="string" required>
+  The message to display to the player inside the alert dialog.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Options passed through to [`Dialog.open()`](/api/dialog#dialogopen). Pass `null` to skip. Supports a `top` property (pixels, default `50`) to control vertical position.
+</ParamField>
+
+<ParamField path="options.top" type="number" default="50">
+  Top y-coordinate of the dialog in pixels, without a unit suffix.
+</ParamField>
+
+<ParamField path="closeFn" type="Function">
+  A callback executed whenever the dialog is closed.
+</ParamField>
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+```js
+UI.alert("You smell of elderberries!");
+```
+
+```js
+UI.alert("Something went wrong.", { top: 100 }, () => {
+  console.log("Alert dismissed.");
+});
+```
+
+---
+
+## UI.restart()
+
+Opens the built-in restart dialog, which prompts the player to confirm they want to restart the story.
+
+```
+UI.restart([options [, closeFn]])
+```
+
+<ParamField path="options" type="object">
+  Options passed through to [`Dialog.open()`](/api/dialog#dialogopen). Pass `null` to skip.
+</ParamField>
+
+<ParamField path="closeFn" type="Function">
+  A callback executed whenever the dialog is closed.
+</ParamField>
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+```js
+UI.restart();
+```
+
+<Note>
+The restart dialog includes Cancel and OK buttons. The engine restart is deferred until after the dialog has fully closed to avoid display race conditions.
+</Note>
+
+---
+
+## UI.saves()
+
+Opens the built-in saves dialog, where players can create, load, and manage save files.
+
+```
+UI.saves([options [, closeFn]])
+```
+
+<ParamField path="options" type="object">
+  Options passed through to [`Dialog.open()`](/api/dialog#dialogopen). Pass `null` to skip.
+</ParamField>
+
+<ParamField path="closeFn" type="Function">
+  A callback executed whenever the dialog is closed.
+</ParamField>
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+```js
+UI.saves();
+```
+
+---
+
+## UI.settings()
+
+Opens the built-in settings dialog, which is populated from entries registered with the [`Setting` API](/api/setting).
+
+```
+UI.settings([options [, closeFn]])
+```
+
+<ParamField path="options" type="object">
+  Options passed through to [`Dialog.open()`](/api/dialog#dialogopen). Pass `null` to skip.
+</ParamField>
+
+<ParamField path="closeFn" type="Function">
+  A callback executed whenever the dialog is closed.
+</ParamField>
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+```js
+UI.settings();
+```
+
+---
+
+## UI.update()
+
+Triggers a `:uiupdate` event that causes all dynamically updated sections of the built-in UI to re-render. This includes sections populated by code passages such as `StoryCaption` and `StoryMenu`. It is called automatically during normal passage navigation.
+
+```
+UI.update()
+```
+
+<ResponseField name="returns" type="void">
+  This method does not return a value.
+</ResponseField>
+
+<Warning>
+Every dynamically updated section of the built-in UI is refreshed (except the main passage display). Use this method sparingly. If you only need to update a specific area, target that area directly rather than triggering a full UI refresh.
+</Warning>
+
+```js
+UI.update();
+```
+
+<Accordion title="When to use UI.update()">
+  You typically only need `UI.update()` when you change story variables or state that affects passages like `StoryCaption`, `StoryMenu`, or `StoryBanner` and you want those sections to reflect the change immediately—without navigating to a new passage. A common case is modifying a variable from a `<<link>>` macro and then calling `UI.update()` to reflect the change in the sidebar.
+</Accordion>

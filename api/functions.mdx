@@ -1,0 +1,502 @@
+---
+title: "Built-in Global Functions — Tea TwineScript APIs"
+description: "Complete reference for all global functions available in Tea TwineScript: clone, either, visited, random, memorize, passage, tags, triggerEvent, and more."
+---
+
+Tea exposes a set of global functions that are available in both TwineScript (inside `<<` `>>` macros) and in JavaScript blocks (inside `<<script>>` or the Story JavaScript). These cover deep-copy utilities, random selection, story history queries, persistent storage, dynamic asset loading, and DOM manipulation.
+
+---
+
+## Value utilities
+
+### `clone(original)` → `any`
+
+Returns a **deep copy** of the given value. Primitives, generic objects, `Array`, `Date`, `Map`, `RegExp`, and `Set` are supported. Custom class instances must implement a `.clone()` method to be handled correctly — when present, `clone()` defers to the instance's own method.
+
+<Warning>
+Referential relationships between objects are not preserved. Each cloned reference is an independent copy. Generic object clones only copy own enumerable properties — getters, setters, and property descriptors are not duplicated.
+</Warning>
+
+<ParamField path="original" type="any" required>
+  The value to deep-copy.
+</ParamField>
+
+<ResponseField name="return" type="any">
+  A deep copy of `original`.
+</ResponseField>
+
+<Tabs>
+  <Tab title="TwineScript">
+    ```twee
+    /* Without clone() — $bar.id change also changes $foo.id */
+    <<set $bar to $foo>>
+    <<set $bar.id to 5>>
+    <<= $foo.id>>  /* Prints 5 */
+
+    /* With clone() — $foo is unaffected */
+    <<set $bar to clone($foo)>>
+    <<set $bar.id to 5>>
+    <<= $foo.id>>  /* Prints 1 */
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```js
+    let foo = { id: 1 };
+    let bar = clone(foo);
+    bar.id = 5;
+    foo.id; // 1 — unchanged
+    bar.id; // 5
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### `either(...values)` → `any`
+
+Returns a random value selected from the given arguments. Arguments may be individual values, arrays, or a mix — all are concatenated into a single pool before selection. Does **not** flatten nested arrays; use `<Array>.flat()` first if needed.
+
+<ParamField path="values" type="any | any[]" required>
+  The values to pick from. Arrays are merged into the pool, not selected as units.
+</ParamField>
+
+<Tabs>
+  <Tab title="TwineScript">
+    ```twee
+    <<set $pie to either('Blueberry', 'Cherry', 'Pecan')>>
+
+    /* Using an array */
+    <<set $pies to ['Blueberry', 'Cherry', 'Pecan']>>
+    <<set $pie to either($pies)>>
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```js
+    let pie = either('Blueberry', 'Cherry', 'Pecan');
+
+    let pies = ['Blueberry', 'Cherry', 'Pecan'];
+    let pie  = either(pies);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Persistent storage
+
+These three functions work together to store values that survive story restarts and browser sessions. The metadata store is tied to the specific story and is not a substitute for saves.
+
+### `memorize(key, value)`
+
+Saves a key/value pair to the story metadata store so it persists across sessions.
+
+<Warning>
+This feature is largely incompatible with private browsing modes, which either restrict or completely block in-browser storage.
+</Warning>
+
+<ParamField path="key" type="string" required>
+  The key under which to store the value.
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The value to store.
+</ParamField>
+
+```js
+memorize('achievements', { ateYellowSnow: true });
+memorize('ngplus', true);
+```
+
+---
+
+### `recall(key [, defaultValue])` → `any`
+
+Returns the value stored under the given key in the story metadata store. If the key does not exist, returns `defaultValue` (if provided).
+
+<ParamField path="key" type="string" required>
+  The key to retrieve.
+</ParamField>
+
+<ParamField path="defaultValue" type="any" optional>
+  The fallback value to return when the key is absent.
+</ParamField>
+
+<ResponseField name="return" type="any">
+  The stored value, or `defaultValue` if the key doesn't exist.
+</ResponseField>
+
+```js
+setup.achievements = recall('achievements', {});
+setup.ngplus = recall('ngplus');
+```
+
+---
+
+### `forget(key)`
+
+Removes the specified key and its associated value from the story metadata store.
+
+<ParamField path="key" type="string" required>
+  The key to remove.
+</ParamField>
+
+```twee
+<<run forget('achievements')>>
+```
+
+---
+
+## Story history
+
+### `visited([...passageNames])` → `number`
+
+Returns the number of times the given passage(s) appear in the story history. When multiple passage names are provided, returns the **lowest count** among them. Defaults to the current passage if called with no arguments.
+
+<ParamField path="passageNames" type="string | string[]" optional>
+  Names of passages to count. Defaults to the active passage.
+</ParamField>
+
+<Tabs>
+  <Tab title="TwineScript">
+    ```twee
+    <<if visited() is 3>>
+      …visited current passage exactly three times…
+    <</if>>
+
+    <<if visited('Bar', 'Café') is 4>>
+      …visited both at least four times…
+    <</if>>
+    ```
+  </Tab>
+  <Tab title="JavaScript">
+    ```js
+    if (visited('Bar') >= 1) {
+      // Been to the Bar at least once.
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### `hasVisited(...passageNames)` → `boolean`
+
+Returns `true` if all named passages appear in the story history, `false` if any are absent. Equivalent to `visited(name) > 0` for each name, combined with logical AND.
+
+<ParamField path="passageNames" type="string | string[]" required>
+  One or more passage names to check.
+</ParamField>
+
+```twee
+<<if hasVisited('Bar', 'Café')>>
+  …has been to both the Bar and Café…
+<</if>>
+```
+
+---
+
+### `lastVisited(...passageNames)` → `number`
+
+Returns the number of turns since the last visit to the given passage, or `-1` if it has never been visited. When multiple names are given, returns the **lowest count** (which may be `-1`).
+
+<ParamField path="passageNames" type="string | string[]" required>
+  One or more passage names.
+</ParamField>
+
+```twee
+<<if lastVisited('Bar') is -1>>…never visited…<</if>>
+<<if lastVisited('Bar') is 0>>…currently in the Bar…<</if>>
+<<if lastVisited('Bar') is 1>>…was there one turn ago…<</if>>
+```
+
+---
+
+### `visitedTags(...tags)` → `number`
+
+Returns the number of passages in the story history that are tagged with **all** of the given tags.
+
+<ParamField path="tags" type="string | string[]" required>
+  One or more tag names.
+</ParamField>
+
+```twee
+<<if visitedTags('forest') gte 1>>
+  …entered the forest at least once…
+<</if>>
+
+<<if visitedTags('forest', 'haunted') is 2>>
+  …been through the haunted forest exactly twice…
+<</if>>
+```
+
+---
+
+### `turns()` → `number`
+
+Returns the total number of turns played — i.e., the count of moments in history up to and including the present. Future (rewound) moments are not included.
+
+```twee
+<<set $turnCount to turns()>>
+<<= 'This is turn #' + turns()>>
+```
+
+---
+
+## Passage information
+
+### `passage()` → `string`
+
+Returns the name of the currently active (present) passage.
+
+```twee
+/* Link that reloads the current passage */
+[[Reload|passage()]]
+
+<<set $here to passage()>>
+```
+
+---
+
+### `previous()` → `string`
+
+Returns the name of the most recent **previous** passage that is different from the active passage. Returns an empty string if there is no such passage.
+
+<Warning>
+If you need to return from an arbitrary depth (e.g., from a menu stack), `previous()` alone may be insufficient. Consider tracking your own return stack.
+</Warning>
+
+```twee
+[[Return|previous()]]
+```
+
+---
+
+### `tags([...passageNames])` → `string[]`
+
+Returns a new array containing all the tags of the given passages. Defaults to the tags of the active passage when called without arguments. Passages included via `<<include>>` or `PassageHeader` do not count as the active passage.
+
+<ParamField path="passageNames" type="string | string[]" optional>
+  Passage names whose tags to collect. Defaults to the active passage.
+</ParamField>
+
+```twee
+<<if tags().includes('forest')>>
+  …currently in a forest passage…
+<</if>>
+
+<<set $lonelyGladeTags to tags('Lonely Glade')>>
+```
+
+---
+
+### `time()` → `number`
+
+Returns the number of milliseconds that have elapsed since the current passage was rendered to the page.
+
+```twee
+<<link "Run!">>
+  <<if time() lt 10000>>
+    <<goto "Escaped">>
+  <<else>>
+    <<goto "Caught">>
+  <</if>>
+<</link>>
+```
+
+---
+
+## Random numbers
+
+### `random([min,] max)` → `number`
+
+Returns a pseudo-random integer in the range `[min, max]` (inclusive). `min` defaults to `0` when omitted. When the seedable PRNG is enabled via `State.prng.init()`, results are deterministic.
+
+<ParamField path="min" type="number" optional>
+  Lower bound (inclusive). Defaults to `0`.
+</ParamField>
+
+<ParamField path="max" type="number" required>
+  Upper bound (inclusive).
+</ParamField>
+
+```twee
+<<set $roll to random(1, 6)>>   /* 1–6 like a die */
+<<set $val  to random(5)>>      /* 0–5 */
+```
+
+---
+
+### `randomFloat([min,] max)` → `number`
+
+Returns a pseudo-random floating-point number in the range `[min, max)` — inclusive minimum, exclusive maximum. `min` defaults to `0.0` when omitted.
+
+<ParamField path="min" type="number" optional>
+  Lower bound (inclusive). Defaults to `0.0`.
+</ParamField>
+
+<ParamField path="max" type="number" required>
+  Upper bound (exclusive).
+</ParamField>
+
+```twee
+<<set $pct to randomFloat(1.0)>>      /* 0.0–0.999… */
+<<set $pct to randomFloat(0.5, 1.0)>> /* 0.5–0.999… */
+```
+
+---
+
+## Variable stores
+
+### `variables()` → `Object`
+
+Returns a direct reference to the active story variables store (equivalent to `State.variables`). Primarily useful in JavaScript when you want to access `$variables` programmatically.
+
+```js
+if (variables().hasGoldenKey) {
+  // $hasGoldenKey is true.
+}
+```
+
+---
+
+### `temporary()` → `Object`
+
+Returns a direct reference to the current temporary variables store (equivalent to `State.temporary`). Primarily useful in JavaScript when you need to read or write `_temp` variables.
+
+```js
+if (temporary().selection === 'Zagnut Bar') {
+  // _selection is 'Zagnut Bar'.
+}
+```
+
+---
+
+## DOM utilities
+
+### `setPageElement(idOrElement, passageName [, defaultText])` → `HTMLElement | null`
+
+Renders the named passage into the target DOM element, replacing any existing content. When an array of passage names is given, the first match is used. If no passage is found and `defaultText` is supplied, that text is rendered instead. Returns the element, or `null` if it cannot be found.
+
+<ParamField path="idOrElement" type="string | HTMLElement" required>
+  The ID of a DOM element (string) or an element reference.
+</ParamField>
+
+<ParamField path="passageName" type="string | string[]" required>
+  The name of a passage to render, or an array of names (first found is used).
+</ParamField>
+
+<ParamField path="defaultText" type="string" optional>
+  Fallback text to display if no matching passage is found.
+</ParamField>
+
+<ResponseField name="return" type="HTMLElement | null">
+  The target element after rendering, or `null` on failure.
+</ResponseField>
+
+```js
+// Render "MyPassage" into <div id="my-display"></div>
+setPageElement('my-display', 'MyPassage');
+```
+
+---
+
+### `triggerEvent(name [, targets [, options]])`
+
+Dispatches a synthetic DOM event with the given name on the specified targets.
+
+<Tip>
+Limit custom event names to letters, digits, periods (`.`), hyphens (`-`), underscores (`_`), and colons (`:`).
+</Tip>
+
+<ParamField path="name" type="string" required>
+  The event name to dispatch. Both native and custom event names are supported.
+</ParamField>
+
+<ParamField path="targets" type="Document | HTMLElement | jQuery | NodeList | HTMLElement[]" optional>
+  The target(s) to dispatch the event on. Defaults to `document`.
+</ParamField>
+
+<ParamField path="options" type="Object" optional>
+  Options for the dispatched event:
+  - `bubbles` *(boolean)* — Whether the event bubbles. Default: `true`.
+  - `cancelable` *(boolean)* — Whether the event can be cancelled. Default: `true`.
+  - `composed` *(boolean)* — Whether it triggers listeners outside a shadow root. Default: `false`.
+  - `detail` *(any)* — Custom data attached to `event.detail`. Default: `undefined`.
+</ParamField>
+
+```js
+// Fire a custom event on document.
+triggerEvent('fnord');
+
+// Click a specific element.
+triggerEvent('click', document.getElementById('some-menu'));
+
+// Fire with custom detail data.
+triggerEvent('update-meter', document, {
+  detail: { tags: ['health', 'magick'] }
+});
+
+// Fire on all elements matching a class.
+triggerEvent('mouseover', document.querySelectorAll('.flippable'));
+```
+
+---
+
+## Asset loading
+
+### `importScripts(...urls)` → `Promise`
+
+Dynamically loads external JavaScript files at runtime. Loose URL arguments are loaded concurrently; URLs inside an array are loaded sequentially (useful when script B depends on script A).
+
+<Note>
+The Story JavaScript section is the recommended place to call `importScripts()`. Loading is asynchronous — use the returned `Promise` when you need to ensure scripts are ready before executing dependent code.
+</Note>
+
+<ParamField path="urls" type="string | string[]" required>
+  URLs to load. Pass as separate arguments for concurrent loading, or as an array for sequential loading.
+</ParamField>
+
+<ResponseField name="return" type="Promise">
+  Resolves when all scripts have loaded, or rejects if any script fails.
+</ResponseField>
+
+```js
+// Load all concurrently.
+importScripts('a.js', 'b.js', 'c.js');
+
+// Load sequentially (b.js waits for a.js).
+importScripts(['a.js', 'b.js']);
+
+// Load a.js and b.js concurrently, then c.js sequentially after both.
+importScripts('a.js', 'b.js', ['c.js']);
+
+// With Promise to run dependent code after load.
+importScripts('https://example.com/lib.js')
+  .then(() => { /* use the library */ })
+  .catch((err) => { console.error(err); });
+```
+
+---
+
+### `importStyles(...urls)` → `Promise`
+
+Dynamically loads external CSS stylesheets at runtime. Follows the same concurrent/sequential URL rules as `importScripts()`.
+
+<ParamField path="urls" type="string | string[]" required>
+  URLs to load. Loose arguments load concurrently; array items load sequentially.
+</ParamField>
+
+<ResponseField name="return" type="Promise">
+  Resolves when all stylesheets have loaded, or rejects if any fails.
+</ResponseField>
+
+```js
+// Load stylesheets concurrently.
+importStyles('theme.css', 'extras.css');
+
+// Ensure a stylesheet is loaded before releasing the loading screen.
+var lockId = LoadScreen.lock();
+importStyles('https://example.com/styles.css')
+  .then(() => { LoadScreen.unlock(lockId); })
+  .catch((err) => { console.error(err); });
+```

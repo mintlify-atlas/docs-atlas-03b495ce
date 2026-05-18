@@ -1,0 +1,357 @@
+---
+title: "Built-in Methods — Tea TwineScript Prototype Extensions"
+description: "Reference for all Tea prototype extensions: Array, jQuery, Math, RegExp, Serial, and String methods available in TwineScript and JavaScript."
+---
+
+Tea extends several built-in JavaScript types with additional prototype methods, and also provides static utility methods on `Math`, `RegExp`, `Serial`, `String`, and `jQuery`. Most are Tea/SugarCube extensions; some are standard JavaScript built-ins documented here for convenience.
+
+Methods marked **JS built-in** are native JavaScript — consult [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference) for the full specification. jQuery extensions are documented fully at [api.jquery.com](https://api.jquery.com/).
+
+---
+
+<AccordionGroup>
+
+  <Accordion title="Array methods">
+
+    All `Array` methods are called on an array instance: `$myArray.methodName(...)`.
+
+    | Method | Signature | Description |
+    |---|---|---|
+    | `concatUnique` | `concatUnique(members…)` → `Array` | Concatenates members to a new array, skipping any that already exist. |
+    | `count` | `count(needle [, pos])` → `number` | Counts how many times `needle` appears, starting at `pos` (default `0`). |
+    | `countWith` | `countWith(predicate [, thisArg])` → `number` | Counts members that pass a predicate function. |
+    | `deleteAll` | `deleteAll(needles…)` → `Array` | Removes **all** instances of the given values. Returns the removed items. |
+    | `deleteAt` | `deleteAt(indices…)` → `Array` | Removes members at the given zero-based indices. Returns the removed items. |
+    | `deleteFirst` | `deleteFirst(needles…)` → `Array` | Removes the **first** instance of each given value. Returns the removed items. |
+    | `deleteLast` | `deleteLast(needles…)` → `Array` | Removes the **last** instance of each given value. Returns the removed items. |
+    | `deleteWith` | `deleteWith(predicate [, thisArg])` → `Array` | Removes all members that pass the predicate. Returns the removed items. |
+    | `first` | `first()` → `any` | Returns the first member without modifying the array. |
+    | `includesAll` | `includesAll(needles…)` → `boolean` | Returns `true` if **all** given values are present. |
+    | `includesAny` | `includesAny(needles…)` → `boolean` | Returns `true` if **any** given value is present. |
+    | `last` | `last()` → `any` | Returns the last member without modifying the array. |
+    | `pluck` | `pluck()` → `any` | Removes and returns a **random** member. Modifies the array. |
+    | `pluckMany` | `pluckMany(want)` → `Array` | Removes and returns `want` randomly chosen unique members. |
+    | `pushUnique` | `pushUnique(members…)` → `number` | Appends members that don't already exist. Returns new length. |
+    | `random` | `random()` → `any` | Returns a random member without modifying the array. |
+    | `randomMany` | `randomMany(want)` → `Array` | Returns a new array of `want` randomly chosen unique members without modifying the original. |
+    | `shuffle` | `shuffle()` → `Array` | Randomly shuffles the array **in-place**. Returns the array. |
+    | `toShuffled` | `toShuffled()` → `Array` | Returns a new randomly shuffled copy. Does not modify the original. |
+    | `toUnique` | `toUnique()` → `Array` | Returns a new copy with all duplicates removed. Does not modify the original. |
+    | `unshiftUnique` | `unshiftUnique(members…)` → `number` | Prepends members that don't already exist. Returns new length. |
+
+    <CodeGroup>
+    ```twee TwineScript examples
+    <<set $fruits to ['Apples', 'Oranges', 'Plums', 'Oranges']>>
+
+    /* Count occurrences */
+    <<set $n to $fruits.count('Oranges')>>     /* 2 */
+
+    /* Delete all duplicates of 'Oranges' */
+    <<set $removed to $fruits.deleteAll('Oranges')>>
+
+    /* Pick and remove a random element */
+    <<set $pick to $fruits.pluck()>>
+
+    /* Get unique values */
+    <<set $unique to $fruits.toUnique()>>
+    ```
+
+    ```js JavaScript examples
+    let fruits = ['Apples', 'Oranges', 'Plums', 'Oranges'];
+
+    fruits.count('Oranges');           // 2
+    fruits.deleteAll('Oranges');       // removes both, returns ['Oranges','Oranges']
+    fruits.pluck();                    // removes + returns a random member
+    fruits.toUnique();                 // ['Apples', 'Oranges', 'Plums']
+    fruits.shuffle();                  // in-place random reorder
+    fruits.randomMany(2);              // new array of 2 random unique picks
+    ```
+    </CodeGroup>
+
+    **`deleteWith` predicate example:**
+
+    ```js
+    let items = [
+      { name: 'Arming sword', kind: 'weapon' },
+      { name: 'Dead rat',     kind: 'junk' },
+    ];
+    items.deleteWith((item) => item.kind === 'junk');
+    // items is now [{ name: 'Arming sword', kind: 'weapon' }]
+    ```
+
+  </Accordion>
+
+  <Accordion title="jQuery methods">
+
+    Tea adds several accessibility and wikification helpers to the jQuery prototype and to the `$`/`jQuery` static object.
+
+    ### Instance methods (called on `$(selector)`)
+
+    #### `<jQuery>.ariaClick([options,] handler)` → `jQuery`
+
+    Makes element(s) fully keyboard-accessible clickables. Sets ARIA attributes and registers both mouse-click and Enter/Space key handlers. Returns the jQuery instance for chaining.
+
+    **Options object properties:**
+    - `namespace` *(string)* — Period-separated event namespaces.
+    - `one` *(boolean)* — Single-use handler. Default: `false`.
+    - `selector` *(string)* — Delegated event filter selector.
+    - `data` *(any)* — Data passed as `event.data`.
+    - `tabindex` *(number)* — `tabindex` attribute value. Default: `0`.
+    - `controls` *(string)* — `aria-controls` attribute value.
+    - `pressed` *(string)* — `aria-pressed` attribute value (`"true"` or `"false"`).
+    - `label` *(string)* — `aria-label` and `title` attribute value.
+
+    ```js
+    $('<a>Click me</a>')
+      .ariaClick({ label: 'Open menu' }, (ev) => { /* handle */ })
+      .appendTo(output);
+    ```
+
+    ---
+
+    #### `<jQuery>.ariaDisabled(state)` → `jQuery`
+
+    Changes the disabled state of WAI-ARIA clickable element(s) created via `ariaClick()`.
+
+    ```js
+    $('#submit-btn').ariaDisabled(true);   // disable
+    $('#submit-btn').ariaDisabled(false);  // enable
+    ```
+
+    ---
+
+    #### `<jQuery>.ariaIsDisabled()` → `boolean`
+
+    Returns `true` if any of the targeted WAI-ARIA clickable element(s) are currently disabled.
+
+    ```js
+    if ($('#submit-btn').ariaIsDisabled()) {
+      // Button is disabled.
+    }
+    ```
+
+    ---
+
+    #### `<jQuery>.wiki(sources…)` → `jQuery`
+
+    Wikifies TwineScript markup in `sources` and **appends** the result to the target element(s). Returns the jQuery instance for chaining.
+
+    ```js
+    $('#the-box').wiki('Who //are// you?');
+    ```
+
+    ---
+
+    #### `<jQuery>.wikiPassage(passageName)` → `jQuery`
+
+    Wikifies the named passage and **appends** its rendered output to the target element(s).
+
+    ```js
+    $('#notebook').wikiPassage('Notes');
+    ```
+
+    ---
+
+    ### Static methods (called on `$` or `jQuery`)
+
+    #### `jQuery.wiki(sources…)`
+
+    Wikifies the given markup and discards the output. Useful for invoking macros purely for their side-effects.
+
+    ```js
+    $.wiki('<<somemacro>>');
+    ```
+
+    ---
+
+    #### `jQuery.wikiPassage(passageName)`
+
+    Wikifies the named passage and discards the output.
+
+    ```js
+    $.wikiPassage('Fight Init');
+    ```
+
+  </Accordion>
+
+  <Accordion title="Math methods">
+
+    ### `Math.clamp(num, min, max)` → `number`
+
+    Returns `num` clamped to the range `[min, max]`. Does not modify the original.
+
+    <ParamField path="num" type="number" required>
+      The number to clamp. May be a numeric string.
+    </ParamField>
+    <ParamField path="min" type="number" required>
+      The lower bound.
+    </ParamField>
+    <ParamField path="max" type="number" required>
+      The upper bound.
+    </ParamField>
+
+    ```twee
+    <<set $hp to Math.clamp($hp, 0, 100)>>
+    ```
+
+    ```js
+    Math.clamp(250, 0, 200); // 200
+    Math.clamp(-5, 0, 200);  // 0
+    Math.clamp(42, 0, 200);  // 42
+    ```
+
+    ---
+
+    ### `Math.trunc(num)` → `number`
+
+    *(JavaScript built-in)* Returns the integer part of `num` by removing any fractional digits. Does not round.
+
+    ```twee
+    <<set $result to Math.trunc(12.7)>>  /* 12 */
+    <<set $result to Math.trunc(-12.7)>> /* -12 */
+    ```
+
+  </Accordion>
+
+  <Accordion title="RegExp methods">
+
+    ### `RegExp.escape(text)` → `string`
+
+    Returns a copy of `text` with all regular expression metacharacters escaped, making it safe to embed literally inside a `RegExp` pattern. Does not modify the original.
+
+    <ParamField path="text" type="string" required>
+      The string to escape.
+    </ParamField>
+
+    ```js
+    let safe = RegExp.escape('That will be $15, cash only.');
+    // '\x54hat\x20will\x20be\x20\$15\x2c\x20cash\x20only\.'
+    new RegExp(safe); // safe to use as a literal pattern
+    ```
+
+  </Accordion>
+
+  <Accordion title="Serial methods">
+
+    ### `Serial.createReviver(code [, data])` → `Array`
+
+    Returns the given code string (and optional data chunk) wrapped in the deserialization reviver format. Intended for use inside a custom class's `.toJSON()` method so instances can be properly revived when deserializing story saves.
+
+    <ParamField path="code" type="string" required>
+      JavaScript code string that reconstructs the instance. The special variable `$ReviveData$` holds the passed `data` during revival.
+    </ParamField>
+
+    <ParamField path="data" type="any" optional>
+      Data to make available as `$ReviveData$` during revival. **Do not pass `this` directly** — pass a clone of the instance's own data to avoid infinite recursion in the serializer.
+    </ParamField>
+
+    ```js
+    // Inside a custom class's toJSON() method:
+    toJSON() {
+      const ownData = {};
+      Object.keys(this).forEach((key) => ownData[key] = clone(this[key]));
+      return Serial.createReviver('new Character($ReviveData$)', ownData);
+    }
+    ```
+
+  </Accordion>
+
+  <Accordion title="String methods">
+
+    All `String` instance methods are called on a string value: `$myString.methodName(...)`.
+
+    ### `<String>.count(needle [, position])` → `number`
+
+    Returns the number of times `needle` appears within the string, starting at `position` (default `0`). Case-sensitive.
+
+    ```twee
+    <<set $text to 'How now, brown cow.'>>
+    <<set $n to $text.count('ow')>>   /* 4 */
+    ```
+
+    ---
+
+    ### `<String>.first()` → `string`
+
+    Returns the first Unicode code point of the string as a new string. Correctly handles multi-unit code points (e.g., emoji).
+
+    ```twee
+    <<set $ch to 'abc'.first()>>   /* 'a' */
+    <<set $ch to '🙈🙉🙊'.first()>> /* '🙈' */
+    ```
+
+    ---
+
+    ### `<String>.last()` → `string`
+
+    Returns the last Unicode code point of the string as a new string.
+
+    ```js
+    'abc'.last();    // 'c'
+    '🙈🙉🙊'.last(); // '🙊'
+    ```
+
+    ---
+
+    ### `<String>.includesAll(needles…)` → `boolean`
+
+    Returns `true` if **all** given substrings are found within the string.
+
+    ```js
+    'The quick brown fox'.includesAll('quick', 'fox'); // true
+    'The quick brown fox'.includesAll('quick', 'cat'); // false
+    ```
+
+    ---
+
+    ### `<String>.includesAny(needles…)` → `boolean`
+
+    Returns `true` if **any** given substring is found within the string.
+
+    ```js
+    'The quick brown fox'.includesAny('cat', 'fox'); // true
+    ```
+
+    ---
+
+    ### `<String>.toLocaleUpperFirst()` → `string`
+
+    Returns a new string with the first character converted to uppercase using the locale-aware rules of `toLocaleUpperCase()`.
+
+    ```js
+    'hello world'.toLocaleUpperFirst(); // 'Hello world'
+    ```
+
+    ---
+
+    ### `<String>.toUpperFirst()` → `string`
+
+    Returns a new string with the first character converted to uppercase using standard `toUpperCase()` rules.
+
+    ```js
+    'hello world'.toUpperFirst(); // 'Hello world'
+    ```
+
+    ---
+
+    ### `String.format(format, arguments…)` → `string`
+
+    Static method. Returns a formatted string by replacing `{index}` format items with the corresponding arguments. Supports optional alignment: `{index,alignment}` where a positive alignment right-pads and a negative alignment left-pads the field.
+
+    <ParamField path="format" type="string" required>
+      The format string containing `{index}` or `{index,alignment}` placeholders.
+    </ParamField>
+
+    <ParamField path="arguments" type="any | any[]" required>
+      Values corresponding by index to the placeholders. May be a list or a single array.
+    </ParamField>
+
+    ```js
+    String.format('{0}, {1}!', 'Hello', 'World'); // 'Hello, World!'
+    String.format('{0,10}', 'right');              // '     right'
+    String.format('{0,-10}|', 'left');             // 'left      |'
+    ```
+
+  </Accordion>
+
+</AccordionGroup>

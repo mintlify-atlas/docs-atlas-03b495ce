@@ -1,0 +1,316 @@
+---
+title: "Interactive Macros: Links, Buttons & Form Controls"
+description: "Tea's interactive macros: link, button, linkappend, linkprepend, linkreplace, back, return, checkbox, radiobutton, textbox, textarea, numberbox, and cycle."
+---
+
+Interactive macros create elements that respond to player input. Because they are **asynchronous**—their contents execute at a later time, after the player acts—there are two important things to keep in mind:
+
+1. If you use interactive macros inside a loop, wrap them in `<<capture>>` to preserve the loop variable's current value.
+2. Reloading the page or revisiting a passage may not restore the state of interactive macros; design your stories with this in mind.
+
+---
+
+## `<<link linkText [passageName]>> … <</link>>`
+
+Creates an anchor (`<a>`) that silently executes its body when clicked, optionally navigating to another passage. Accepts plain text, link markup, or image markup as the first argument.
+
+<Tabs>
+  <Tab title="Text + passage">
+    ```twee
+    <<link "Do the thing, Zhu Li!" "Does the thing">>
+        /* code to run before navigating */
+    <</link>>
+    ```
+  </Tab>
+  <Tab title="Link markup">
+    ```twee
+    <<link [[Do the thing, Zhu Li!|Does the thing]]>>
+        /* code to run */
+    <</link>>
+    ```
+  </Tab>
+  <Tab title="Image markup">
+    ```twee
+    <<link [img[doing-the-thing.jpg][Does the thing]]>>
+        /* code to run */
+    <</link>>
+    ```
+  </Tab>
+  <Tab title="No navigation">
+    ```twee
+    → Update a stat display without leaving the passage
+    Strength: <<set $pcStr to 10>><span id="stats-str">$pcStr</span> \
+    ( <<link "[+]">><<set $pcStr++>><<replace "#stats-str">>$pcStr<</replace>><</link>> \
+    | <<link "[-]">><<set $pcStr-->><<replace "#stats-str">>$pcStr<</replace>><</link>> )
+    ```
+  </Tab>
+  <Tab title="Optional class / id">
+    ```twee
+    <<link "Poke the bear." "Pokes bear" class "bear-poke">><</link>>
+    <<link "Menu" id "menu-link">>
+        /* open a menu */
+    <</link>>
+    ```
+  </Tab>
+</Tabs>
+
+<ParamField body="linkText" type="string" required>
+  The visible text of the link. May contain markup. Alternatively, pass link markup `[[…]]` or image markup `[img[…]]` as the sole first argument.
+</ParamField>
+<ParamField body="passageName" type="string">
+  Optional. The passage to navigate to when clicked.
+</ParamField>
+<ParamField body="class classNames" type="string">
+  Optional. Space-separated class names to set on the link element.
+</ParamField>
+<ParamField body="id identifier" type="string">
+  Optional. Unique ID to assign to the link element.
+</ParamField>
+
+---
+
+## `<<button linkText [passageName]>> … <</button>>`
+
+Functionally identical to `<<link>>` but renders as a `<button>` element rather than an anchor. Accepts the same argument forms.
+
+```twee
+→ Stat controls with buttons
+Strength: <<set $pcStr to 10>><span id="stats-str">$pcStr</span> \
+( <<button "[+]">><<set $pcStr++>><<replace "#stats-str">>$pcStr<</replace>><</button>> \
+| <<button "[-]">><<set $pcStr-->><<replace "#stats-str">>$pcStr<</replace>><</button>> )
+
+→ Navigate with optional class
+<<button "Poke the bear." "Pokes bear" class "bear-poke">><</button>>
+
+→ Image markup form
+<<button [img[doing-the-thing.jpg][Does the thing]]>>
+    /* code to run */
+<</button>>
+```
+
+---
+
+## Inline reveal macros
+
+These single-use links deactivate themselves when clicked and inject new content relative to the link text.
+
+### `<<linkappend linkText [transition|t8n]>> … <</linkappend>>`
+
+Appends the body content after the link text, then deactivates.
+
+```twee
+→ Without transition
+We—We should <<linkappend "take">> away their METAL BAWKSES<</linkappend>>!
+
+→ With CSS transition
+I spy with my little <<linkappend "eye" t8n>>, a crab rangoon<</linkappend>>.
+```
+
+### `<<linkprepend linkText [transition|t8n]>> … <</linkprepend>>`
+
+Prepends the body content before the link text, then deactivates.
+
+```twee
+You see a <<linkprepend "robot">>GIANT <</linkprepend>>.
+I <<linkprepend "like" t8n>>do not <</linkprepend>> lemons.
+```
+
+### `<<linkreplace linkText [transition|t8n]>> … <</linkreplace>>`
+
+Replaces the link text entirely with the body content, then deactivates.
+
+```twee
+I'll have a <<linkreplace "cupcake">>slice of key lime pie<</linkreplace>>, please.
+<<linkreplace "You'll //never// take me alive!" t8n>>On second thought, don't hurt me.<</linkreplace>>
+```
+
+---
+
+## `<<back>>` and `<<return>>`
+
+### `<<back [linkText [passageName]]>>`
+
+Creates a link that **undoes** past moments in the story history (rolls the history back). With no arguments, shows a default label and undoes the most recent moment.
+
+```twee
+→ Default undo link
+<<back>>
+
+→ Custom label
+<<back "Home.">>
+
+→ Undo until the most recent "HQ" moment
+<<back "Home." "HQ">>
+
+→ Link markup form
+<<back [[HQ]]>>
+<<back [[Home.|HQ]]>>
+```
+
+### `<<return [linkText [passageName]]>>`
+
+Creates a link that **navigates forward** to the previously visited passage (adds a new history moment). The distinction: `<<back>>` rolls back, `<<return>>` goes forward to a previous destination.
+
+```twee
+→ Forward to the previous passage
+<<return>>
+
+→ Custom label
+<<return "Home.">>
+
+→ Forward to "HQ" with label "Home."
+<<return "Home." "HQ">>
+
+→ Link markup form
+<<return [[HQ]]>>
+<<return [[Home.|HQ]]>>
+```
+
+---
+
+## Form controls
+
+All form-control macros modify a story variable via a **quoted receiver name**—e.g., `"$pie"` rather than `$pie`—so the macro can write back to the variable.
+
+### `<<checkbox "$var" uncheckedValue checkedValue [autocheck|checked]>>`
+
+Creates a checkbox that toggles the receiver variable between two values.
+
+```twee
+What pies do you enjoy?
+* <label><<checkbox "$pieBlueberry" false true autocheck>> Blueberry?</label>
+* <label><<checkbox "$pieCherry" false true autocheck>> Cherry?</label>
+* <label><<checkbox "$pieCoconutCream" false true checked>> Coconut cream?</label>
+```
+
+<ParamField body="receiverName" type="quoted string" required>
+  The quoted name of the variable to modify. Object/array property refs are supported: `"$foo.bar"`, `"$foo[0]"`.
+</ParamField>
+<ParamField body="uncheckedValue" type="any" required>
+  Value set when the checkbox is unchecked.
+</ParamField>
+<ParamField body="checkedValue" type="any" required>
+  Value set when the checkbox is checked.
+</ParamField>
+<ParamField body="autocheck" type="keyword">
+  Automatically pre-checks the checkbox based on the current value of the receiver variable.
+</ParamField>
+<ParamField body="checked" type="keyword">
+  Forces the checkbox to the checked state on render.
+</ParamField>
+
+<Tip>
+Wrap each `<<checkbox>>` and its label text inside a `<label>` element so that clicking the text also toggles the checkbox.
+</Tip>
+
+---
+
+### `<<radiobutton "$var" checkedValue [autocheck|checked]>>`
+
+Creates a radio button. Multiple `<<radiobutton>>` macros sharing the same receiver variable form a group.
+
+```twee
+What's your favorite pie?
+* <label><<radiobutton "$pie" "blueberry" autocheck>> Blueberry?</label>
+* <label><<radiobutton "$pie" "cherry" autocheck>> Cherry?</label>
+* <label><<radiobutton "$pie" "coconut cream" autocheck>> Coconut cream?</label>
+```
+
+---
+
+### `<<textbox "$var" defaultValue [passage] [autofocus]>>`
+
+Creates a single-line text input. Pressing Return/Enter may optionally forward to another passage.
+
+```twee
+→ Basic text box
+What's your favorite pie? <<textbox "$pie" "Blueberry">>
+
+→ Navigate to "Cakes" when Enter is pressed
+What's your favorite pie? <<textbox "$pie" "Blueberry" "Cakes">>
+
+→ Auto-focus on load
+What's your name? <<textbox "$playerName" "" autofocus>>
+```
+
+---
+
+### `<<textarea "$var" defaultValue [autofocus]>>`
+
+Creates a multi-line text input area.
+
+```twee
+Write a short essay about pies:
+<<textarea "$pieEssay" "">>
+
+Write a short essay about pies:
+<<textarea "$pieEssay" "" autofocus>>
+```
+
+---
+
+### `<<numberbox "$var" defaultValue [passage] [autofocus]>>`
+
+Creates a number input. Accepts only numeric values and may optionally forward to a passage when Enter is pressed.
+
+```twee
+→ Basic number box
+Wager how much on Buttstallion? <<numberbox "$wager" 100>>
+
+→ Navigate on Enter
+Wager how much on Buttstallion? <<numberbox "$wager" 100 "Result">>
+
+→ Auto-focused with navigation
+Wager how much on Buttstallion? <<numberbox "$wager" 100 "Result" autofocus>>
+```
+
+---
+
+### `<<cycle "$var" [once] [autoselect]>> … <</cycle>>`
+
+Creates a cycling link that advances through a list of options on each click. Options are defined with `<<option>>` children or loaded from a collection with `<<optionsfrom>>`.
+
+```twee
+The answer to the Ultimate Question is?
+<<cycle "$answer" autoselect>>
+    <<option "Towel">>
+    <<option "π" 3.14159>>
+    <<option 42>>
+    <<option "∞" Infinity>>
+<</cycle>>
+
+→ Using <<optionsfrom>> with an array
+<<cycle "$pie" autoselect>>
+    <<optionsfrom ["blueberry", "cherry", "coconut cream"]>>
+<</cycle>>
+
+→ The "once" keyword — stops at the last option and deactivates
+You see a large red button.
+<<cycle "$presses" once>>
+    <<option "Should you press it?" 0>>
+    <<option "Nothing happened. Again?" 1>>
+    <<option "It locked with an ominous click." 2>>
+<</cycle>>
+```
+
+---
+
+### `<<listbox "$var" [autoselect]>> … <</listbox>>`
+
+Creates an HTML `<select>` drop-down. Options are defined with `<<option>>` children or `<<optionsfrom>>`, same as `<<cycle>>`.
+
+```twee
+The answer to the Ultimate Question is?
+<<listbox "$lbanswer" autoselect>>
+    <<option "Towel">>
+    <<option "π" 3.14159>>
+    <<option 42>>
+    <<option 69>>
+    <<option "∞" Infinity>>
+<</listbox>>
+
+→ From an object (keys become labels, values become values)
+<<listbox "$pie" autoselect>>
+    <<optionsfrom { "Blueberry": "blueberry", "Cherry": "cherry" }>>
+<</listbox>>
+```

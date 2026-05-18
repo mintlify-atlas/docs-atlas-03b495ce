@@ -1,81 +1,148 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
-icon: 'rocket'
+title: "Get started building interactive fiction stories with Tea"
+description: "Build your first interactive story with Tea: create passages, store values in variables, branch with <<if>>, and navigate between scenes with links."
 ---
 
-## Get started in three steps
+Tea stories are made up of **passages** — named blocks of text and markup that the engine displays one at a time. You move between passages through links. Variables let you track what the player has done and branch the narrative accordingly. This guide walks you through all three concepts with working code you can copy directly into Twine 2 or a `.twee` file.
 
-Get your documentation site running locally and make your first customization.
+<Note>
+  Make sure you have Tea installed before continuing. See [Installing Tea](/installation) for setup instructions.
+</Note>
 
-### Step 1: Set up your local environment
+## What you'll build
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+A minimal two-passage story where the player picks up a key, and the next passage reacts to whether they have it. Along the way you'll use `<<set>>` to store a value, `<<if>>` to branch on it, and `[[link markup]]` to navigate between passages.
 
-### Step 2: Deploy your changes
+<Steps>
+  <Step title="Create your starting passage">
+    Every Tea story needs a passage named **Start**. In Twine 2, double-click on the canvas to create a new passage and name it `Start`. In Twee, write:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```twee
+    :: Start
+    You stand in a dimly lit hallway. A brass key glints on the floor.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    [[Pick up the key|Corridor]]
+    [[Leave it and move on|Corridor]]
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    The `[[Text|PassageName]]` syntax creates a clickable link. The text before the pipe (`|`) is what the player sees; the name after it is the passage to navigate to.
 
-### Step 3: Go live
+    <Tip>
+      You can also write `[[PassageName]]` when the link text and passage name are the same — Tea uses the passage name as the link label.
+    </Tip>
+  </Step>
+  <Step title="Set a variable when the player clicks a link">
+    Tea's **story variables** start with `$` and persist for the entire playthrough. Use `<<set>>` to assign a value. Update your `Start` passage to set `$hasKey` when the player picks up the key:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```twee
+    :: Start
+    You stand in a dimly lit hallway. A brass key glints on the floor.
+
+    <<link "Pick up the key" "Corridor">><<set $hasKey to true>><</link>>
+    [[Leave it and move on|Corridor]]
+    ```
+
+    The `<<link>>` macro runs the code inside its body silently when clicked, then forwards the player to the named passage. Here it sets `$hasKey` to `true` before navigating.
+
+    <Note>
+      The `to` keyword is Tea's TwineScript syntax for assignment. You can also use the standard JavaScript `=` operator: `<<set $hasKey = true>>`.
+    </Note>
+  </Step>
+  <Step title="Branch on a variable with `<<if>>`">
+    In the destination passage, use `<<if>>` to show different text depending on whether the player grabbed the key:
+
+    ```twee
+    :: Corridor
+    You enter a long corridor. At the far end is a locked door.
+
+    <<if $hasKey>>
+    	You try the brass key. The lock turns with a satisfying click.
+    	[[Open the door|Beyond]]
+    <<else>>
+    	The door is locked. You have nothing to open it with.
+    	[[Turn back|Start]]
+    <</if>>
+    ```
+
+    `<<if>>` evaluates its condition and renders the matching branch. The `<<else>>` branch renders when the condition is `false` or undefined. Close the block with `<</if>>`.
+
+    Variables in passage text are interpolated automatically — you can write `$hasKey` anywhere in your prose and Tea substitutes its current value. For example:
+
+    ```twee
+    Your inventory: $hasKey
+    ```
+
+    outputs `Your inventory: true` if `$hasKey` is `true`.
+  </Step>
+  <Step title="Add a final passage">
+    Add the destination passage so the story has somewhere to go:
+
+    ```twee
+    :: Beyond
+    Beyond the door lies a sunlit courtyard. You made it.
+
+    [[Play again|Start]]
+    ```
+
+    `[[Play again|Start]]` sends the player back to the beginning. Tea preserves history so they can also use the back button in the UI bar.
+  </Step>
+  <Step title="Run the story">
+    **In Twine 2:** Click **Play** in the toolbar. Tea compiles your passages and opens the story in a new browser tab.
+
+    **In Tweego:** Compile the `.twee` file to HTML:
+
+    ```bash
+    tweego --format=tea -o story.html story.twee
+    ```
+
+    Open `story.html` in any browser.
+  </Step>
+</Steps>
+
+## Complete example
+
+Here is the full story as a single Twee file you can save and compile:
+
+```twee
+:: StoryTitle
+My First Tea Story
+
+:: Start
+You stand in a dimly lit hallway. A brass key glints on the floor.
+
+<<link "Pick up the key" "Corridor">><<set $hasKey to true>><</link>>
+[[Leave it and move on|Corridor]]
+
+:: Corridor
+You enter a long corridor. At the far end is a locked door.
+
+<<if $hasKey>>
+	You try the brass key. The lock turns with a satisfying click.
+	[[Open the door|Beyond]]
+<<else>>
+	The door is locked. You have nothing to open it with.
+	[[Turn back|Start]]
+<</if>>
+
+:: Beyond
+Beyond the door lies a sunlit courtyard. You made it.
+
+[[Play again|Start]]
+```
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Macro reference" icon="brackets-curly" href="/macros/overview">
+    Explore all built-in macros for control flow, audio, DOM manipulation, and more
+  </Card>
+  <Card title="TwineScript variables" icon="dollar-sign" href="/core/twinescript">
+    Learn how story variables, temporary variables, and expressions work
+  </Card>
+  <Card title="Link markup" icon="link" href="/core/markup">
+    Setter links, arrow separators, and image links
+  </Card>
+  <Card title="State and saving" icon="floppy-disk" href="/guides/state-and-saving">
+    Understand history, sessions, and save slots
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

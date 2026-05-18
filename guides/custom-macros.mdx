@@ -1,0 +1,203 @@
+---
+title: "How to Write and Register Custom Macros in Tea Stories"
+description: "Register custom macros with Macro.add(), access arguments and output via MacroContext, handle errors, and build both void and container macros with examples."
+---
+
+Tea exposes its entire macro registration system to authors through the `Macro` API. Custom macros are plain JavaScript objects with a `handler` function; inside that function, `this` is bound to a `MacroContext` instance that provides the macro's arguments, an output DOM node to write into, the source code string for error messages, and — for container macros — the parsed payload between the opening and closing tags. Macros are registered in your project's JavaScript section (Twine 2: Story JavaScript; Twee: a `script`-tagged passage).
+
+## Registering a Macro
+
+```js
+Macro.add('macroname', {
+    handler() {
+        // `this` is the MacroContext instance
+    }
+});
+```
+
+You can also register the same definition under multiple names at once by passing an array:
+
+```js
+Macro.add(['hello', 'hi'], {
+    handler() {
+        // registered as both <<hello>> and <<hi>>
+    }
+});
+```
+
+<Warning>
+`Macro.add()` throws if the name is invalid, if the macro already exists, or if the name is already registered as a child tag of another macro. You cannot silently overwrite a built-in macro.
+</Warning>
+
+## The MacroContext Object
+
+Inside the `handler` function, `this` is a `MacroContext` instance with the following key members:
+
+| Member | Type | Description |
+|---|---|---|
+| `this.args` | `Array` | The parsed arguments passed to the macro invocation. |
+| `this.output` | `HTMLElement` | The DOM node to append rendered output to. |
+| `this.payload` | `Array\|null` | For container macros, an array of payload objects (one per tag). `null` for void macros. |
+| `this.name` | `string` | The canonical macro name (even if invoked as an alias). |
+| `this.displayName` | `string` | The name as actually invoked (useful for aliases). |
+| `this.source` | `string` | The raw source string of the macro invocation. |
+| `this.parent` | `MacroContext\|null` | The parent macro context, if this macro is nested inside another. |
+
+## Accessing Arguments
+
+`this.args` is an array of the macro's parsed arguments. TwineScript values (numbers, booleans, story variables) are already evaluated; string arguments are plain strings.
+
+```js
+Macro.add('greet', {
+    handler() {
+        if (this.args.length === 0) {
+            return this.error('no name specified');
+        }
+        const name = this.args[0];
+        jQuery(this.output).append(`Hello, ${name}!`);
+    }
+});
+```
+
+```twee
+<<greet "world">>      /* outputs: Hello, world! */
+<<greet $playerName>>  /* outputs: Hello, Alice! (if $playerName is "Alice") */
+```
+
+## Writing Output
+
+Write to `this.output` using DOM methods or jQuery. For wikified (TwineScript-processed) content, use `this.wiki()`:
+
+```js
+Macro.add('highlight', {
+    handler() {
+        if (this.args.length < 2) {
+            return this.error('usage: <<highlight color "text">>');
+        }
+        const [color, text] = this.args;
+        jQuery('<span>')
+            .css('color', color)
+            .text(text)
+            .appendTo(this.output);
+    }
+});
+```
+
+```twee
+<<highlight "crimson" "Warning: low health">>
+```
+
+### Wikifying content
+
+To process TwineScript markup inside the output, use `this.wiki(source)`:
+
+```js
+Macro.add('box', {
+    handler() {
+        const content = this.args[0];
+        const div = jQuery('<div>').addClass('box').appendTo(this.output);
+        this.wiki(content); // runs TwineScript markup inside the div
+    }
+});
+```
+
+## Error Handling
+
+`this.error(message)` appends a formatted error message to the output and returns `true`. Always `return` its result so the handler exits:
+
+```js
+Macro.add('clamp', {
+    handler() {
+        if (this.args.length < 3) {
+            return this.error('usage: <<clamp value min max>>');
+        }
+        const [value, min, max] = this.args;
+        if (typeof value !== 'number') {
+            return this.error(`value must be a number (got: ${typeof value})`);
+        }
+        jQuery(this.output).text(Math.min(Math.max(value, min), max));
+    }
+});
+```
+
+## Container Macros
+
+Container macros have opening and closing tags (`<<foo>>…<</foo>>`) and can define named child tags. Set the `tags` property to an array of child tag names (use `null` or omit it for a container with no child tags). The parsed content of each tag is available in `this.payload`.
+
+Each element of `this.payload` is an object with:
+- `.name` — the tag name (`""` for the container body, child tag name for child tags)
+- `.args` — the child tag's own arguments
+- `.contents` — the raw TwineScript source string between this tag and the next
+
+```js
+Macro.add('tabs', {
+    tags: ['tab'],
+
+    handler() {
+        if (this.payload.length < 2) {
+            return this.error('at least one <<tab>> required');
+        }
+
+        const container = jQuery('<div>').addClass('tab-container').appendTo(this.output);
+
+        // payload[0] is the <<tabs>> body (ignored here)
+        for (let i = 1; i < this.payload.length; i++) {
+            const label = this.payload[i].args[0] ?? `Tab ${i}`;
+            const panel = jQuery('<div>').addClass('tab-panel').appendTo(container);
+            jQuery('<h3>').text(label).appendTo(panel);
+            this.wiki(this.payload[i].contents); // wikify the tab body
+        }
+    }
+});
+```
+
+```twee
+<<tabs>>
+    <<tab "Chapter One">>
+        You wake up in a dark room.
+    <<tab "Chapter Two">>
+        The door is unlocked now.
+<</tabs>>
+```
+
+## Example: A Simple \<\<highlight\>\> Macro
+
+```js
+Macro.add('highlight', {
+    handler() {
+        if (this.args.length < 1) {
+            return this.error('usage: <<highlight color>>content<</highlight>>');
+        }
+        // void version — wraps inline text
+        const color = String(this.args[0]);
+        jQuery('<span>')
+            .css('background-color', color)
+            .append(this.args.slice(1).join(' '))
+            .appendTo(this.output);
+    }
+});
+```
+
+## Example: A Container \<\<callout\>\> Macro
+
+```js
+Macro.add('callout', {
+    tags: null,  // container with no child tags
+
+    handler() {
+        const type = this.args[0] ?? 'info'; // 'info' | 'warning' | 'tip'
+        const box = jQuery('<aside>')
+            .addClass(`callout callout-${type}`)
+            .appendTo(this.output);
+
+        // wikify the content between <<callout>> and <</callout>>
+        this.wiki(this.payload[0].contents);
+    }
+});
+```
+
+```twee
+<<callout "warning">>
+    Saving is disabled on this passage.
+<</callout>>
+```

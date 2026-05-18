@@ -1,0 +1,218 @@
+---
+title: "Special Passage, Tag, and Variable Names in Tea"
+description: "All reserved names in Tea: code passages like StoryInit, special tags like nobr and widget, and global API variables like Config, Engine, and State."
+---
+
+Tea reserves certain passage names, tag names, and variable names for its own use. Getting these right is critical — they must be spelled and capitalized **exactly** as shown, and mixing special passages with code tags on the same passage will produce unpredictable behavior.
+
+<Warning>
+1. All special names are **case-sensitive**. Their spelling and capitalization must match exactly.
+2. Never combine special or code passages with code tags. Doing so will likely break things in subtle, hard-to-detect ways.
+</Warning>
+
+## Code passages
+
+Code passages are used only as code or UI infrastructure — they should never be navigated to directly. They run at specific points in the passage lifecycle or populate parts of the UI bar.
+
+<AccordionGroup>
+  <Accordion title="PassageDone">
+    Runs after each passage is rendered and displayed. Use it for post-display tasks such as applying dynamic DOM changes. Generates no output.
+
+    Roughly equivalent to the `:passagedisplay` navigation event.
+  </Accordion>
+  <Accordion title="PassageFooter">
+    Appended to each rendered passage. Use it to inject footer content into every passage automatically.
+
+    Roughly equivalent to the `:passagerender` navigation event.
+  </Accordion>
+  <Accordion title="PassageHeader">
+    Prepended to each rendered passage. Use it to inject header content into every passage automatically.
+
+    Roughly equivalent to the `:passagestart` navigation event.
+  </Accordion>
+  <Accordion title="PassageReady">
+    Runs before each passage is rendered. Use it for pre-display tasks such as applying dynamic changes before the player sees the passage. Generates no output.
+
+    Roughly equivalent to the `:passagestart` navigation event.
+  </Accordion>
+  <Accordion title="StoryAuthor">
+    Populates the authorial byline area in the UI bar (element ID: `story-author`).
+  </Accordion>
+  <Accordion title="StoryBanner">
+    Populates the story's banner area in the UI bar (element ID: `story-banner`).
+  </Accordion>
+  <Accordion title="StoryCaption">
+    Populates the story's caption area in the UI bar (element ID: `story-caption`). Often used to add additional story-specific UI elements and content to the sidebar.
+  </Accordion>
+  <Accordion title="StoryDisplayTitle">
+    Sets the title shown in the browser's titlebar and the UI bar (element ID: `story-title`). If omitted, the story title is used instead. Introduced in v2.31.0.
+
+    <Tip>
+      Use `StoryDisplayTitle` when you want a title that contains markup, macros, or dynamic content. `StoryTitle` must be plain text.
+    </Tip>
+  </Accordion>
+  <Accordion title="StoryInit">
+    Runs once at the very beginning of story initialization, before the starting passage is displayed. Use it for variable initialization and one-time setup tasks. Generates no output.
+
+    ```twee
+    /* Example StoryInit passage */
+    <<set $playerName to "">>
+    <<set $gold to 100>>
+    <<set $inventory to []>>
+    <<set $flags to {}>>
+    ```
+  </Accordion>
+  <Accordion title="StoryInterface">
+    Replaces Tea's default UI entirely. Its contents are treated as raw HTML — none of Tea's special HTML processing is performed. The markup is wrapped in `<div id="story" role="main">` and must contain at least one element with `id="passages"` as the main passage display area.
+
+    Additional elements may use `data-init-passage` (populated once at init) or `data-passage` (updated on each navigation) to bind passage content.
+
+    <Warning>
+      Elements with `data-init-passage` or `data-passage` should not contain child elements. Their contents are replaced by the associated passage on each update, so any children will be lost.
+    </Warning>
+
+    ```html
+    <!-- Minimal working StoryInterface -->
+    <div id="passages"></div>
+
+    <!-- With init and dynamic panels -->
+    <div id="menu" data-init-passage="Menu"></div>
+    <div id="notifications" data-passage="Notifications"></div>
+    <div id="passages"></div>
+    ```
+  </Accordion>
+  <Accordion title="StoryMenu">
+    Populates the story's menu items in the UI bar (element ID: `menu-story`). Only links — any element that produces an `<a>` tag — are displayed; all other rendered output is discarded.
+
+    ```twee
+    [[Inventory]]
+
+    <<if $scheduleEnabled>>
+      <<link "Schedule">> … <</link>>
+    <</if>>
+
+    <a data-passage="Equipment">Equipment</a>
+    ```
+  </Accordion>
+  <Accordion title="StorySettings">
+    <Warning>
+      This is an unused Twine 1.4 code passage. It has no effect in Tea. Use the `Config` API to configure story settings instead.
+    </Warning>
+  </Accordion>
+  <Accordion title="StorySubtitle">
+    Sets the story's subtitle in the UI bar (element ID: `story-subtitle`).
+  </Accordion>
+  <Accordion title="StoryTitle">
+    <Warning>
+      The story title is used to generate the storage ID for all player data — saves, settings, and session state. It must be plain text with no code, markup, or macros.
+    </Warning>
+
+    - **Twine 2:** Not a code passage. The title is part of the story project itself.
+    - **Twine 1/Twee:** Required. Sets the story's title.
+  </Accordion>
+</AccordionGroup>
+
+## Special passages
+
+These passages receive special treatment from the engine itself.
+
+### `Start`
+
+- **Twine 2:** Not a special passage. Any passage may be set as the starting passage using the *Start Story Here* context menu item in the editor.
+- **Twine 1/Twee:** Required. The first passage displayed when the story starts. Configurable via `Config.passages.start`.
+
+## Code tags
+
+Passages tagged with these tags are treated as code or data and cannot be navigated to.
+
+<AccordionGroup>
+  <Accordion title="init">
+    Registers the passage as an initialization passage. It runs at the beginning of story initialization — the same timing as `StoryInit` — and generates no output.
+
+    <Note>
+      This tag is primarily intended for add-ons and libraries. For ordinary story projects, use the `StoryInit` special passage (combined with `<<include>>` if you need additional structure). Introduced in v2.36.0.
+    </Note>
+  </Accordion>
+  <Accordion title="script">
+    - **Twine 2:** Unused. Add JavaScript via the *Edit Story JavaScript* menu item instead.
+    - **Twine 1/Twee:** Registers the passage as JavaScript code that is executed during startup.
+  </Accordion>
+  <Accordion title="stylesheet">
+    - **Twine 2:** Unused. Add CSS via the *Edit Story Stylesheet* menu item instead.
+    - **Twine 1/Twee:** Registers the passage as a CSS stylesheet loaded during startup.
+
+    <Warning>
+      Use only a single `stylesheet` tagged passage. CSS loads in passage order and Twine 1/Twee gives you no control over that order with multiple stylesheet passages.
+    </Warning>
+  </Accordion>
+  <Accordion title="Twine.audio">
+    Registers the passage as an audio media passage. See the Media Passages guide for details. Introduced in v2.24.0.
+  </Accordion>
+  <Accordion title="Twine.image">
+    Registers the passage as an image media passage. See the Media Passages guide for details.
+  </Accordion>
+  <Accordion title="Twine.video">
+    Registers the passage as a video media passage. See the Media Passages guide for details. Introduced in v2.24.0.
+  </Accordion>
+  <Accordion title="Twine.vtt">
+    Registers the passage as a VTT (Video Text Track) media passage. See the Media Passages guide for details. Introduced in v2.24.0.
+  </Accordion>
+  <Accordion title="widget">
+    Registers the passage as containing `<<widget>>` macro definitions. Widget passages are loaded during startup and their definitions are available everywhere in the story.
+  </Accordion>
+</AccordionGroup>
+
+## Special tags
+
+### `nobr`
+
+Causes leading and trailing newlines to be removed from the passage, and all remaining sequences of newlines to be replaced with single spaces, before the passage is rendered. This is equivalent to wrapping the entire passage in a `<<nobr>>` macro.
+
+Apply `nobr` to individual passages that need compact whitespace handling. To apply the same behavior to every passage in your story at once, use `Config.passages.nobr`.
+
+<Note>
+The `nobr` tag does not affect `script` or `stylesheet` tagged passages in Twine 1/Twee.
+</Note>
+
+## Special variables
+
+These are global variables provided by Tea and the browser. Do not redefine them.
+
+### API objects
+
+| Variable | Description |
+|---|---|
+| `Config` | Configuration API — controls story behavior and engine settings |
+| `Dialog` | Dialog API — opens and manages modal dialogs |
+| `Engine` | Engine API — controls playback, navigation, and history |
+| `Fullscreen` | Fullscreen API — manages browser fullscreen mode (v2.31.0+) |
+| `LoadScreen` | LoadScreen API — controls the loading screen (v2.15.0+) |
+| `Macro` | Macro API — defines and manages custom macros |
+| `Passage` | Passage API — provides information about passages |
+| `Save` | Save API — manages saves, auto-saves, and disk exports |
+| `Setting` | Setting API — defines player-configurable settings |
+| `SimpleAudio` | SimpleAudio API — manages audio tracks, groups, and playlists (v2.28.0+) |
+| `State` | State API — provides access to the story state and history |
+| `Story` | Story API — provides access to story metadata and passages |
+| `Template` | Template API — registers and manages template markup (v2.29.0+) |
+| `UI` | UI API — manages the built-in dialogs and UI interactions |
+| `UIBar` | UIBar API — controls the sidebar UI bar (v2.17.0+) |
+
+### Utility variables
+
+| Variable | Description |
+|---|---|
+| `$` | Alias for `jQuery`. Not to be confused with story variables, which also start with `$` — e.g., `$foo`. |
+| `jQuery` | jQuery library function, available globally. |
+| `l10nStrings` | Strings localization object. Override its properties to translate the built-in UI text. Introduced in v2.10.0. |
+| `settings` | Player settings object, populated by the `Setting` API with the values the player has chosen. |
+| `setup` | Object for storing non-persistent static data — values that do not change and should not enter the story history or be stored in saves. |
+
+### Widget-only variables
+
+These variables are only defined inside `<<widget>>` macro definitions.
+
+| Variable | Description |
+|---|---|
+| `_args` | Array of arguments passed to the widget. Introduced in v2.36.0. |
+| `_contents` | String containing the rendered inner content of a block widget. Introduced in v2.36.0. |

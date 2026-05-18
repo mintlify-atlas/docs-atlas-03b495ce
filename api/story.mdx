@@ -1,0 +1,242 @@
+---
+title: "Story API: Accessing and Managing Story Passages in Tea"
+description: "Reference for the Tea Story API. Read identity properties, search passages by predicate, and add or remove passages from the store at runtime."
+---
+
+The `Story` object is a static store that holds all of the story's identity information and every `Passage` instance loaded from the compiled HTML. It exposes getters for the story's name, ID, and IFID, along with methods for querying and mutating the passage store at runtime.
+
+<Note>
+  Methods that modify the passage store (`Story.add()`, `Story.delete()`) cannot operate on code passages or passages with code tags (`init`, `widget`). See the individual method notes for details.
+</Note>
+
+## Getters
+
+### `Story.id`
+
+<ResponseField name="Story.id" type="string">
+  The DOM-compatible ID of the story, derived by slugifying the story name.
+</ResponseField>
+
+Returns the story's DOM-compatible ID. This is the slugified form of the story name and is used, for example, as a basis for the `<html>` element's `id` attribute.
+
+```js
+Story.id // e.g., "the-dark-forest-saga"
+```
+
+---
+
+### `Story.ifId`
+
+<ResponseField name="Story.ifId" type="string">
+  The IFID (Interactive Fiction IDentifier) of the story, or an empty string if none exists.
+</ResponseField>
+
+Returns the story's IFID. In the Twine 2 ecosystem, IFIDs are version 4 random UUIDs assigned when a story is first created.
+
+```js
+Story.ifId // e.g., "D674C58C-DEFA-4F70-B7A2-27742230C950"
+```
+
+---
+
+### `Story.name`
+
+<ResponseField name="Story.name" type="string">
+  The human-readable name of the story.
+</ResponseField>
+
+Returns the story name as set in Twine or the Twee source.
+
+```js
+Story.name // e.g., "The Dark Forest Saga"
+```
+
+## Methods
+
+### `Story.add(descriptor)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the passage was added successfully; `false` otherwise.
+</ResponseField>
+
+Adds a new passage to the passage store at runtime. The descriptor must include `name`, `tags`, and `text`.
+
+<Note>
+  Cannot add code passages (e.g., `StoryInit`, `StoryMenu`) or passages tagged with code tags (`init`, `widget`).
+</Note>
+
+<ParamField path="descriptor" type="object" required>
+  A passage descriptor object. All three properties are required.
+</ParamField>
+
+The descriptor object must have the following properties:
+
+<ResponseField name="name" type="string" required>
+  The passage's name.
+</ResponseField>
+
+<ResponseField name="tags" type="string" required>
+  A whitespace-separated list of tags, or an empty string for no tags.
+</ResponseField>
+
+<ResponseField name="text" type="string" required>
+  The raw TwineScript/wikifier text of the passage.
+</ResponseField>
+
+```js
+const descriptor = {
+  name : "Forest 4",
+  tags : "forest heavy",
+  text : "You can barely see farther than arm's length for all the trees.",
+};
+
+if (Story.add(descriptor)) {
+  // "Forest 4" is now in the passage store
+}
+```
+
+---
+
+### `Story.delete(name)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the passage was found and deleted; `false` otherwise.
+</ResponseField>
+
+Removes the `Passage` instance with the given name from the passage store.
+
+<Note>
+  Cannot delete the starting passage, code passages, or passages with code tags.
+</Note>
+
+<ParamField path="name" type="string" required>
+  The name of the passage to delete.
+</ParamField>
+
+```js
+if (Story.delete("The Ducky")) {
+  // "The Ducky" passage has been removed
+}
+```
+
+---
+
+### `Story.filter(predicate [, thisArg])`
+
+<ResponseField name="returns" type="Array">
+  A new `Array<Passage>` of all `Passage` instances that passed the predicate, or an empty array if none did.
+</ResponseField>
+
+Searches all passages for those that satisfy the given predicate function. The predicate receives each `Passage` instance in turn; returning `true` includes it in the results.
+
+<Note>
+  Cannot retrieve passages tagged with code tags.
+</Note>
+
+<ParamField path="predicate" type="Function" required>
+  A function `(passage: Passage) => boolean` that tests each passage.
+</ParamField>
+
+<ParamField path="thisArg" type="any">
+  Optional value to use as `this` when calling the predicate.
+</ParamField>
+
+```js
+// All passages tagged "forest"
+Story.filter(function (p) {
+  return p.tags.includes("forest");
+});
+
+// All passages whose names contain whitespace
+var hasWhitespaceRE = /\s/;
+Story.filter(function (p) {
+  return hasWhitespaceRE.test(p.name);
+});
+```
+
+---
+
+### `Story.find(predicate [, thisArg])`
+
+<ResponseField name="returns" type="Passage | undefined">
+  The first `Passage` instance that passed the predicate, or `undefined` if none did.
+</ResponseField>
+
+Searches all passages for the first one that satisfies the given predicate function.
+
+<Note>
+  Cannot retrieve passages tagged with code tags.
+</Note>
+
+<ParamField path="predicate" type="Function" required>
+  A function `(passage: Passage) => boolean` that tests each passage.
+</ParamField>
+
+<ParamField path="thisArg" type="any">
+  Optional value to use as `this` when calling the predicate.
+</ParamField>
+
+```js
+// First passage tagged "forest"
+Story.find(function (p) {
+  return p.tags.includes("forest");
+});
+
+// First passage whose name contains whitespace
+var hasWhitespaceRE = /\s/;
+Story.find(function (p) {
+  return hasWhitespaceRE.test(p.name);
+});
+```
+
+---
+
+### `Story.get(name)`
+
+<ResponseField name="returns" type="Passage">
+  The `Passage` instance with the given name, or a new empty `Passage` instance if no such passage exists.
+</ResponseField>
+
+Retrieves the `Passage` instance by name. If the passage does not exist, returns an empty (error-rendering) `Passage` rather than `null` — so existence should be checked with `Story.has()` first if needed.
+
+<Note>
+  Cannot retrieve passages tagged with code tags.
+</Note>
+
+<ParamField path="name" type="string" required>
+  The name of the passage to retrieve.
+</ParamField>
+
+```js
+const theDucky = Story.get("The Ducky");
+
+// Access its properties
+theDucky.name  // "The Ducky"
+theDucky.tags  // e.g., ["pond", "animal"]
+theDucky.text  // raw passage text
+```
+
+---
+
+### `Story.has(name)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if a `Passage` instance with the given name exists; `false` otherwise.
+</ResponseField>
+
+Checks whether a passage with the given name exists in the passage store.
+
+<Note>
+  Does not check passages tagged with code tags.
+</Note>
+
+<ParamField path="name" type="string" required>
+  The name of the passage to check.
+</ParamField>
+
+```js
+if (Story.has("The Ducky")) {
+  const p = Story.get("The Ducky");
+  // safe to use p
+}
+```

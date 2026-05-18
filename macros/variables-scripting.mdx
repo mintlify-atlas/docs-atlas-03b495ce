@@ -1,0 +1,178 @@
+---
+title: "Variables & Scripting Macros in the Tea Story Format"
+description: "Full reference for Tea's <<set>>, <<unset>>, <<capture>>, <<run>>, and <<script>> macros with syntax, argument details, and real TwineScript examples."
+---
+
+Variables and scripting macros give you direct control over story state. Use them to store data, clean up values no longer needed, protect loop variables from async closures, evaluate side-effectful expressions, and drop into raw JavaScript when TwineScript isn't enough.
+
+## `<<set expression>>`
+
+Evaluates the given expression and assigns the result to one or more story `$variables` or temporary `_variables`. The entire argument is treated as a single expression, so you can chain multiple assignments separated by commas.
+
+<Tabs>
+  <Tab title="TwineScript (to operator)">
+    ```twee
+    <<set $cheese to "a nice, sharp cheddar">>
+    <<set $chestEmpty to true>>
+    <<set $sum to $a + $b>>
+    <<set $gold to $gold + 5>>
+    <<set _counter to _counter + 1>>
+    ```
+  </Tab>
+  <Tab title="JavaScript operators">
+    ```twee
+    <<set $cheese = "a nice, sharp cheddar">>
+    <<set $chestEmpty = true>>
+    <<set $sum = $a + $b>>
+    <<set $gold += 5>>
+    <<set _counter += 1>>
+    ```
+  </Tab>
+  <Tab title="Multiple assignments">
+    ```twee
+    → Assign several variables at once
+    <<set $cash -= 5, $hasMeatPie = true>>
+
+    → Build a complex object
+    <<set $player to { name: "Ada", hp: 100, level: 1 }>>
+    ```
+  </Tab>
+</Tabs>
+
+<ParamField body="expression" type="expression" required>
+  A valid TwineScript or JavaScript expression. Supports the TwineScript `to` assignment operator as well as all standard JavaScript assignment operators (`=`, `+=`, `-=`, `*=`, etc.).
+</ParamField>
+
+<Tip>
+TwineScript's `to` operator (`$x to value`) is equivalent to JavaScript's `=` operator. Use whichever reads more naturally for your passage. The `eq`, `lt`, `gt`, `lte`, `gte`, `neq`, `is`, and `not` operators are also available for comparisons.
+</Tip>
+
+---
+
+## `<<unset variableList>>`
+
+Removes story `$variables`, temporary `_variables`, and/or properties of objects stored within either. Accepts a comma-separated list.
+
+```twee
+→ Unset individual variables
+<<unset $rumors>>
+<<unset _npc>>
+
+→ Unset several at once
+<<unset $rumors, _npc, _choices, $job>>
+
+→ Unset object properties
+<<unset _choices.b>>
+<<unset $towns['port ulster'].rumors>>
+<<unset _choices.b, $towns['port ulster'].rumors, $pc.notes>>
+```
+
+<ParamField body="variableList" type="list" required>
+  A comma-separated list of story `$variables`, temporary `_variables`, or property accessors on variables stored in either (`$obj.prop`, `$arr[0]`, etc.).
+</ParamField>
+
+---
+
+## `<<capture variableList>> … <</capture>>`
+
+Creates localized copies of the listed variables for use inside the macro body. This is only necessary when you need to capture a variable's _current value_ for use inside an **asynchronous** macro—such as `<<link>>`, `<<button>>`, `<<repeat>>`, or `<<timed>>`—because those macros execute their content at a later time, after the variable may have changed.
+
+<CodeGroup>
+```twee Loop variable capture
+→ Without <<capture>>, every link would show the last value of _i
+<<set _what to ["a crab rangoon", "a gaggle of geese", "an aardvark"]>>
+<<for _i to 0; _i lt _what.length; _i++>>
+    <<capture _i>>
+        I spy with my little <<linkappend "eye" t8n>>, _what[_i]<</linkappend>>.
+    <</capture>>
+<</for>>
+```
+
+```twee Multiple variables
+→ Capture several variables at once
+<<capture $aStoryVar, $anotherStoryVar, _aTempVar>>
+    <<link "Remember this moment">>
+        <<set $log to $log + "\n" + $aStoryVar + " / " + $anotherStoryVar>>
+    <</link>>
+<</capture>>
+```
+</CodeGroup>
+
+<ParamField body="variableList" type="list" required>
+  A comma-separated list of story `$variables` and/or temporary `_variables` to localize.
+</ParamField>
+
+<Note>
+`<<capture>>` is only needed when a variable's value will change between the time the async macro is invoked and when it actually runs—most commonly inside loops. For straightforward one-off uses of `<<link>>` or `<<button>>`, it is usually not required.
+</Note>
+
+---
+
+## `<<run expression>>`
+
+Functionally identical to `<<set>>`. Intended to be mnemonically clearer for cases where the expression is arbitrary code rather than a variable assignment—use `<<run>>` to _run_ code and `<<set>>` to _set_ variables.
+
+```twee
+→ Call a method that has side effects
+<<run $inventory.delete("rusty key")>>
+
+→ Push to an array
+<<run $log.push("Entered the castle at " + visited() + " visits")>>
+
+→ Call a custom function
+<<run Engine.show()>>
+```
+
+---
+
+## `<<script [language]>> … <</script>>`
+
+Silently executes a block of JavaScript (default) or TwineScript code. A predefined `output` variable—a reference to a local content buffer—is available inside the block; anything appended to it will be inserted into the passage output after the block finishes.
+
+<Tabs>
+  <Tab title="JavaScript (default)">
+    ```twee
+    <<script>>
+        /* Cache references to variable stores */
+        const svars = State.variables;
+        const tvars = State.temporary;
+
+        /* Read a story variable */
+        if (svars.items.includes('bloody knife')) {
+            svars.suspicion += 10;
+        }
+
+        /* Write to a temp variable */
+        tvars.hit += 1;
+    <</script>>
+    ```
+  </Tab>
+  <Tab title="TwineScript">
+    ```twee
+    <<script TwineScript>>
+        /* Access story and temp variables with normal sigils */
+        if ($items.includes('bloody knife')) {
+            $suspicion += 10
+        }
+
+        _hit += 1
+    <</script>>
+    ```
+  </Tab>
+  <Tab title="Output buffer">
+    ```twee
+    <<script>>
+        /* Append wikified markup to the passage output */
+        $(output).wiki("Cry 'Havoc!', and let slip the //ponies// of ''friendship''.");
+    <</script>>
+    ```
+  </Tab>
+</Tabs>
+
+<ParamField body="language" type="string">
+  Optional. The language to evaluate the block as. Case-insensitive. Accepts `JavaScript` (default) or `TwineScript`. Added in v2.37.0.
+</ParamField>
+
+<Warning>
+Code inside `<<script>>` executes in the same context as the rest of Tea's engine. Avoid modifying engine internals or the DOM directly from `<<script>>` unless you know exactly what you're doing. Use `State.variables` and `State.temporary` to access managed story and temp variables from JavaScript.
+</Warning>

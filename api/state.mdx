@@ -1,0 +1,504 @@
+---
+title: "State API: History, Variables, Metadata, and the PRNG"
+description: "Full reference for the Tea State API. Access history moments, story variables, persistent metadata, and the seedable pseudo-random number generator."
+---
+
+The `State` object is the authoritative record of everything that has happened in a Tea story. It manages the full history of moments (both past and future within a session), the currently active moment, variables attached to moments, temporary variables, persistent story metadata, and an optional seedable pseudo-random number generator (PRNG).
+
+History in Tea is divided into three conceptual layers: the **full in-play history** (past + future), the **past in-play subset** (past only), and the **extended past** (expired + past). Individual members below note which layer they operate on.
+
+## Getters
+
+### `State.active`
+
+<ResponseField name="State.active" type="Object">
+  The active (present) moment object, with `title` and `variables` properties.
+</ResponseField>
+
+Returns the active (present) moment. In most cases you do not need this directly — prefer the `State.passage` and `State.variables` shortcuts, or the `passage()` and `variables()` story functions.
+
+```js
+State.active.title     // title of the present moment
+State.active.variables // variables of the present moment
+```
+
+---
+
+### `State.bottom`
+
+<ResponseField name="State.bottom" type="Object">
+  The least recent moment within the full in-play history (past + future).
+</ResponseField>
+
+Returns the bottommost moment of the full in-play history.
+
+```js
+State.bottom.title     // title of the oldest moment in the full history
+State.bottom.variables // variables of the oldest moment in the full history
+```
+
+---
+
+### `State.current`
+
+<ResponseField name="State.current" type="Object">
+  The current moment from the full history — the pre-play version of the active moment.
+</ResponseField>
+
+Returns the current (not yet active) moment from the full in-play history.
+
+<Warning>
+  `State.current` is not a synonym for `State.active`. You will almost never need to use it directly.
+</Warning>
+
+```js
+State.current.title     // title of the current full-history moment
+State.current.variables // variables of the current full-history moment
+```
+
+---
+
+### `State.length`
+
+<ResponseField name="State.length" type="number">
+  The number of moments in the past in-play history (past only).
+</ResponseField>
+
+Returns the count of moments in the past-only subset of the in-play history.
+
+```js
+if (State.length === 0) {
+  // No past moments — this is the very start
+}
+```
+
+---
+
+### `State.passage`
+
+<ResponseField name="State.passage" type="string">
+  The title of the passage associated with the active (present) moment.
+</ResponseField>
+
+Returns the passage name for the current moment. This is the most common way to read the current passage name in JavaScript.
+
+```js
+State.passage // e.g., "The Dark Forest"
+```
+
+---
+
+### `State.size`
+
+<ResponseField name="State.size" type="number">
+  The number of moments within the full in-play history (past + future).
+</ResponseField>
+
+Returns the total moment count across both past and future in the in-play history.
+
+```js
+if (State.size === 0) {
+  // The full history is completely empty
+}
+```
+
+---
+
+### `State.temporary`
+
+<ResponseField name="State.temporary" type="Object">
+  The current temporary variables (`_`-sigiled variables in TwineScript).
+</ResponseField>
+
+Returns the temporary variables object. These variables persist only for the current turn and are not saved to history.
+
+```js
+State.temporary // e.g., { _count: 3, _label: "hero" }
+```
+
+---
+
+### `State.top`
+
+<ResponseField name="State.top" type="Object">
+  The most recent moment from the full in-play history (past + future).
+</ResponseField>
+
+Returns the topmost moment of the full in-play history.
+
+<Warning>
+  `State.top` is not a synonym for `State.active`. You will almost never need to use it directly.
+</Warning>
+
+```js
+State.top.title     // title of the most recent full-history moment
+State.top.variables // variables of the most recent full-history moment
+```
+
+---
+
+### `State.turns`
+
+<ResponseField name="State.turns" type="number">
+  Total count of played moments in the extended past (expired + past).
+</ResponseField>
+
+Returns the cumulative turn count, including moments that have expired out of the history. Useful for tracking total playtime rather than navigable history depth.
+
+```js
+if (State.turns === 1) {
+  // The starting passage is being displayed for the first time
+}
+```
+
+---
+
+### `State.variables`
+
+<ResponseField name="State.variables" type="Object">
+  The story variables (`$`-sigiled) from the active (present) moment.
+</ResponseField>
+
+Returns the story variables object for the current moment. This is the primary way to read and write story variables in JavaScript.
+
+```js
+State.variables          // the live story variables object
+State.variables.health   // e.g., 100
+State.variables.name = 'Eveline'; // write a variable
+```
+
+## Methods
+
+### `State.getVar(varName)`
+
+<ResponseField name="returns" type="any">
+  The current value of the named variable, or `undefined` if it does not exist.
+</ResponseField>
+
+Returns the value of the story or temporary variable identified by the given sigiled name.
+
+<ParamField path="varName" type="string" required>
+  The variable name including its sigil: `$` for story variables, `_` for temporary variables. Example: `"$charName"`.
+</ParamField>
+
+```js
+State.getVar("$charName") // returns the value of $charName
+State.getVar("_count")    // returns the value of _count
+```
+
+---
+
+### `State.has(passageTitle)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if any past moment has the given title; `false` otherwise.
+</ResponseField>
+
+Returns whether any moment with the given title exists in the **past in-play** history (not expired moments). To check if the player has ever visited a passage, use `State.hasPlayed()` or the `hasVisited()` story function instead.
+
+<ParamField path="passageTitle" type="string" required>
+  The passage title to search for in the past in-play history.
+</ParamField>
+
+```js
+State.has("The Ducky") // true if "The Ducky" is in the past history
+```
+
+---
+
+### `State.hasPlayed(passageTitle)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the title appears in the extended past (expired + past); `false` otherwise.
+</ResponseField>
+
+Returns whether any moment with the given title has ever existed in the **extended past** history. This includes expired moments, so it correctly answers "has the player ever visited this passage?"
+
+<ParamField path="passageTitle" type="string" required>
+  The passage title to search for in the extended past history.
+</ParamField>
+
+```js
+State.hasPlayed("The Ducky") // true if "The Ducky" was ever played
+```
+
+---
+
+### `State.index(index)`
+
+<ResponseField name="returns" type="Object">
+  The moment at the given index from the bottom of the past in-play history.
+</ResponseField>
+
+Returns the moment at the given index within the **past in-play** history, counting from the bottom (oldest) upward.
+
+<ParamField path="index" type="number" required>
+  An integer index. `0` is the least recent moment in the past history.
+</ParamField>
+
+```js
+State.index(0)                 // least recent past moment
+State.index(1)                 // second least recent past moment
+State.index(State.length - 1)  // most recent past moment
+```
+
+---
+
+### `State.isEmpty()`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the full in-play history contains no moments.
+</ResponseField>
+
+Returns whether the full in-play history (past + future) is empty.
+
+```js
+if (State.isEmpty()) {
+  // the full in-play history is empty
+}
+```
+
+---
+
+### `State.peek([offset])`
+
+<ResponseField name="returns" type="Object">
+  The moment at the given offset from the top of the past in-play history.
+</ResponseField>
+
+Returns the moment at the given offset from the **top** (most recent) of the past in-play history. Defaults to offset `0` (the most recent moment).
+
+<ParamField path="offset" type="number" default="0">
+  Optional non-negative integer offset from the top. `0` returns the most recent past moment.
+</ParamField>
+
+```js
+State.peek()                  // most recent past moment
+State.peek(0)                 // same as above
+State.peek(1)                 // second most recent past moment
+State.peek(State.length - 1)  // least recent past moment
+```
+
+---
+
+### `State.random()`
+
+<ResponseField name="returns" type="number">
+  A pseudo-random floating-point number in `[0, 1)`.
+</ResponseField>
+
+Returns a pseudo-random decimal number between `0` (inclusive) and `1` (exclusive). When the seedable PRNG has been enabled via `State.prng.init()`, returns deterministic results from the seeded PRNG. Otherwise delegates to `Math.random()`.
+
+```js
+State.random() // e.g., 0.7321948...
+```
+
+---
+
+### `State.setVar(varName, value)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the variable was set successfully; `false` otherwise.
+</ResponseField>
+
+Sets the value of the story or temporary variable identified by the given sigiled name.
+
+<ParamField path="varName" type="string" required>
+  The variable name including its sigil (`$` or `_`). Example: `"$charName"`.
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The value to assign to the variable.
+</ParamField>
+
+```js
+State.setVar("$charName", "Jane Doe") // assigns "Jane Doe" to $charName
+State.setVar("_count", 0)             // assigns 0 to _count
+```
+
+## `State.metadata`
+
+The `State.metadata` store provides a small key/value persistence mechanism that survives story restarts and browser restarts (private browsing modes may interfere). Use it for achievements, new game+ data, and playthough statistics — not as a replacement for saves.
+
+<Warning>
+  The metadata store is tied to the specific story it was created with and cannot be used to share data between stories.
+</Warning>
+
+### `State.metadata.size`
+
+<ResponseField name="State.metadata.size" type="number">
+  The number of key/value pairs currently in the metadata store.
+</ResponseField>
+
+```js
+if (State.metadata.size > 0) {
+  // the store contains at least one entry
+}
+```
+
+---
+
+### `State.metadata.clear()`
+
+Removes all key/value pairs from the metadata store.
+
+```js
+State.metadata.clear();
+```
+
+---
+
+### `State.metadata.delete(key)`
+
+Removes the specified key and its associated value from the store.
+
+<ParamField path="key" type="string" required>
+  The key to remove.
+</ParamField>
+
+```js
+State.metadata.delete('achievements');
+```
+
+---
+
+### `State.metadata.entries()`
+
+<ResponseField name="returns" type="Array">
+  An array of `[key, value]` pairs for every entry in the store.
+</ResponseField>
+
+```js
+State.metadata.entries().forEach(([key, value]) => {
+  // process each pair
+});
+```
+
+---
+
+### `State.metadata.get(key)`
+
+<ResponseField name="returns" type="any">
+  The value associated with the key, or `undefined` if absent.
+</ResponseField>
+
+<ParamField path="key" type="string" required>
+  The key whose value should be retrieved.
+</ParamField>
+
+```js
+var achievements = State.metadata.get('achievements');
+```
+
+---
+
+### `State.metadata.has(key)`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the key exists in the store.
+</ResponseField>
+
+<ParamField path="key" type="string" required>
+  The key to test.
+</ParamField>
+
+```js
+if (State.metadata.has('achievements')) {
+  // the key exists
+}
+```
+
+---
+
+### `State.metadata.keys()`
+
+<ResponseField name="returns" type="Array">
+  An array of all keys currently in the store.
+</ResponseField>
+
+```js
+State.metadata.keys().forEach((key) => {
+  // process each key
+});
+```
+
+---
+
+### `State.metadata.set(key, value)`
+
+Sets a key/value pair in the metadata store. The value must be JSON-serializable. To update a value, simply set the key again.
+
+<ParamField path="key" type="string" required>
+  The key to set.
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  A JSON-serializable value to associate with the key.
+</ParamField>
+
+```js
+State.metadata.set('achievements', { ateYellowSnow: true });
+State.metadata.set('ngplus', true);
+```
+
+## `State.prng`
+
+The `State.prng` sub-object controls an optional seedable pseudo-random number generator that integrates into story state and saves for reproducible randomness.
+
+### `State.prng.init([seed [, useEntropy]])`
+
+Initializes the seedable PRNG and integrates it into the story state and saves. Once called, `State.random()`, `random()`, and `randomFloat()` return deterministic results from the seed.
+
+<Warning>
+  `State.prng.init()` must be called during story initialization — in Story JavaScript or the `StoryInit` special passage. It cannot be called mid-play.
+</Warning>
+
+<ParamField path="seed" type="string">
+  Optional explicit seed string. Strongly recommended to omit and allow automatic seeding.
+</ParamField>
+
+<ParamField path="useEntropy" type="boolean">
+  When `true`, pads an explicit seed with additional entropy to avoid identical playthroughs for all players.
+</ParamField>
+
+```js
+State.prng.init()                        // auto-seed (recommended)
+State.prng.init("aVeryLongSeed")         // explicit seed (not recommended)
+State.prng.init("aVeryLongSeed", true)   // explicit seed + entropy padding
+```
+
+---
+
+### `State.prng.isEnabled()`
+
+<ResponseField name="returns" type="boolean">
+  `true` if the seedable PRNG has been initialized.
+</ResponseField>
+
+```js
+State.prng.isEnabled() // true after State.prng.init() has been called
+```
+
+---
+
+### `State.prng.pull`
+
+<ResponseField name="State.prng.pull" type="number">
+  The current pull count (number of random values drawn), or `NaN` if the PRNG is not enabled.
+</ResponseField>
+
+```js
+State.prng.pull // e.g., 42 (or NaN if PRNG not initialized)
+```
+
+---
+
+### `State.prng.seed`
+
+<ResponseField name="State.prng.seed" type="string | null">
+  The seed string used to initialize the PRNG, or `null` if the PRNG is not enabled.
+</ResponseField>
+
+```js
+State.prng.seed // e.g., "aVeryLongSeed" (or null)
+```

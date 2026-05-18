@@ -1,0 +1,98 @@
+---
+title: "Localizing Tea's Built-in UI Text with l10nStrings"
+description: "Override Tea's default UI text by setting properties on the l10nStrings object — covers structure, replacement patterns, templates, and practical examples."
+---
+
+Tea ships with a built-in English UI — dialog titles, button labels, error messages, and warning copy — all of which can be replaced through a single JavaScript object called `l10nStrings`. This is Tea's localization system: rather than hunting through source files to change the word "game" to "story" or translating a *Restart* dialog to German, you set properties on `l10nStrings` in your Story JavaScript (Twine 2) or a `script`-tagged passage (Twee), and Tea uses your values everywhere.
+
+## The l10nStrings Object
+
+`l10nStrings` is a flat object with string properties. Some examples from the defaults:
+
+```js
+var l10nStrings = {
+    // General
+    textAbort    : 'Abort',
+    textAborting : 'Aborting',
+    textCancel   : 'Cancel',
+    textClose    : 'Close',
+    textDelete   : 'Delete',
+    textOk       : 'OK',
+    textSave     : 'Save',
+
+    // In lowercase, if possible.
+    textIdentity : 'game',
+
+    // (noun) chance to act, moment, period
+    textTurn     : 'Turn',
+
+    // Errors
+    errorNonexistentPassage : 'the passage "{passage}" does not exist',
+
+    // Warnings
+    warningNoStorage  : 'Usable storage APIs are missing. ...',
+    warningDegraded   : 'Some capabilities required to support this {textIdentity} are missing...',
+    warningNoSaves    : 'Some capabilities required to support saves are missing...',
+
+    // Save UI
+    saveErrorDisallowed : 'Saving is currently disallowed.',
+};
+```
+
+## Replacement Patterns
+
+Replacement patterns use the format `{NAME}` where `NAME` is either a property of `l10nStrings` or, in a few cases, a locally supplied object (noted in comments in the source). Replacements are processed **recursively**: a replacement string can itself contain `{…}` patterns whose values contain further patterns. Take care not to create circular references — Tea detects infinite loops and throws an error.
+
+```js
+// {textIdentity} is replaced by the value of l10nStrings.textIdentity
+warningDegraded : 'Some capabilities required to support this {textIdentity} are missing...'
+```
+
+### Template properties
+
+By convention, properties starting with an underscore (e.g., `_warningOutroDegraded`) are **templates** — they are only referenced inside other strings and are never displayed directly. You can add your own template properties to handle gender, plurals, or any other complex substitution pattern.
+
+## How to Override Strings
+
+Set your overrides in the Story JavaScript section (Twine 2) or a `script`-tagged passage (Twee). Only the properties you set are changed; everything else keeps its default.
+
+```js
+// Change the product identity from "game" to "story"
+l10nStrings.textIdentity = 'story';
+
+// Change all dialog OK buttons
+l10nStrings.textOk = 'Eeyup';
+
+// Translate the Restart dialog title
+l10nStrings.restartTitle = 'Neustart';   // German
+l10nStrings.restartTitle = 'Reiniciar'; // Spanish
+```
+
+<Note>
+Tea uses `l10nStrings` internally at the point each UI string is rendered, not at startup. Overrides set before the story starts take effect for all UI text throughout the session.
+</Note>
+
+## Creating a Full Locale
+
+For a complete translation, use the [official locale template](https://github.com/tmedwards/sugarcube-2/tree/develop/locale/) as your starting point. The template file (format `xx-YY.js`, e.g., `en-US.js`) contains every overridable property with comments, and ready-made locale files for many languages are available in the same directory.
+
+<Steps>
+  <Step title="Download the template">
+    Grab `locale/TEMPLATE.js` from the SugarCube 2 repository and rename it to your locale code (e.g., `de-DE.js`).
+  </Step>
+  <Step title="Translate each property">
+    Work through the template top-to-bottom, replacing the English default values. Preserve capitalization and punctuation conventions — error and warning strings are deliberately styled.
+  </Step>
+  <Step title="Add to your project">
+    Paste the completed locale file contents into your Story JavaScript section or include it as a `script`-tagged passage.
+  </Step>
+</Steps>
+
+## Translation Notes
+
+Keep these conventions in mind when writing a locale:
+
+- **Capitalization and punctuation in error/warning strings is deliberate.** Try to preserve the same style in your translations.
+- **Replacement patterns (`{NAME}`) must be preserved exactly** — if the original string has `{textIdentity}`, your translation must too (or the substitution will silently fail to render).
+- **Recursive replacements can loop.** If property A's value references `{B}` and B's value references `{A}`, Tea will detect the loop and throw an error. Keep your template chains strictly one-directional.
+- **The `strings` legacy object** — prior to v2.10.0 the object was named `strings`. If an old project's scripts define a `strings` object, Tea maps it to `l10nStrings` for backwards compatibility. The two object formats are incompatible; switching to `l10nStrings` directly is recommended.

@@ -1,0 +1,88 @@
+---
+title: "Tea Macros: A Complete Overview and Category Reference"
+description: "What macros are in Tea, how their syntax works, how arguments are parsed, and a guide to every macro category with links to the detail reference pages."
+---
+
+Macros are Tea's primary authoring tool—they let you set variables, branch on conditions, display dynamic content, respond to player input, and manipulate the page, all from within regular passage text. Every macro is written between double angle brackets: `<<macroname>>`.
+
+## Syntax
+
+Macros come in two structural forms: **void** macros, which are self-closing, and **container** macros, which wrap content between an opening and a closing tag.
+
+```twee
+→ Void macro — no closing tag
+<<set $gold to 10>>
+
+→ Container macro — opening and closing tag
+<<if $gold gt 0>>
+    You have gold.
+<</if>>
+```
+
+The closing tag of a container macro always starts with a forward slash: `<</macroname>>`.
+
+## Argument types
+
+Macros fall into two broad categories based on what kind of arguments they accept.
+
+**Expression macros** (e.g. `<<set>>`, `<<print>>`) evaluate their entire argument string as a single TwineScript or JavaScript expression:
+
+```twee
+<<set $sum to $a + $b>>
+<<print $weight.toFixed(2)>>
+```
+
+**Discrete-argument macros** (e.g. `<<link>>`, `<<audio>>`) treat whitespace-separated tokens as individual arguments. Variable substitution happens automatically, so `$gold` passes the _value_ of `$gold`, not the name `"$gold"`. When a macro needs the variable's _name_ instead (for example `<<textbox>>`), you must quote it:
+
+```twee
+→ Passes the name "$pie" so the textbox can write back to it
+<<textbox "$pie" "Blueberry">>
+```
+
+When you need to pass the _result of an expression_ as a discrete argument, use a **backquote expression** — the backtick (`` ` ``) causes its contents to be evaluated and yielded as a single argument:
+
+```twee
+→ This WILL NOT work — the parser sees five separate arguments
+<<link "Wake " + $friend + ".">> … <</link>>
+
+→ This WORKS — the backquote evaluates to a single string
+<<link `"Wake " + $friend + "."`>> … <</link>>
+
+→ Alternatively, store the result in a temp variable first
+<<set _text to "Wake " + $friend + ".">>\
+<<link _text>> … <</link>>
+```
+
+## Macro categories
+
+<CardGroup cols={2}>
+  <Card title="Variables & Scripting" icon="code" href="/macros/variables-scripting">
+    Set and unset story variables, capture loop values, run arbitrary expressions, and embed raw JavaScript or TwineScript blocks with `<<set>>`, `<<unset>>`, `<<capture>>`, `<<run>>`, and `<<script>>`.
+  </Card>
+  <Card title="Display & Control" icon="eye" href="/macros/display-control">
+    Output expressions, include passages, suppress whitespace, type text character-by-character, branch with `<<if>>`, loop with `<<for>>`, match with `<<switch>>`, navigate with `<<goto>>`, and schedule delayed content with `<<timed>>` and `<<repeat>>`.
+  </Card>
+  <Card title="Interactive" icon="cursor-arrow-rays" href="/macros/interactive">
+    Create player-driven links, buttons, inline text-reveal macros, and form controls: checkboxes, radio buttons, text boxes, cycling links, and listboxes.
+  </Card>
+  <Card title="Audio" icon="speaker-wave" href="/macros/audio">
+    Load, group, playlist, and control audio tracks with `<<cacheaudio>>`, `<<audio>>`, `<<createaudiogroup>>`, `<<createplaylist>>`, `<<masteraudio>>`, `<<playlist>>`, and friends.
+  </Card>
+  <Card title="DOM" icon="rectangle-stack" href="/macros/dom">
+    Manipulate live page elements after render: add, remove, or toggle CSS classes, and append, prepend, replace, copy, or remove element content with CSS/jQuery selectors.
+  </Card>
+</CardGroup>
+
+## Quick-reference table
+
+| Category | Key macros |
+|---|---|
+| Variables & Scripting | `<<set>>` `<<unset>>` `<<capture>>` `<<run>>` `<<script>>` |
+| Display & Control | `<<print>>` `<<= >>` `<<- >>` `<<include>>` `<<nobr>>` `<<silent>>` `<<type>>` `<<do>>` `<<redo>>` `<<if>>` `<<for>>` `<<switch>>` `<<goto>>` `<<repeat>>` `<<timed>>` `<<done>>` |
+| Interactive | `<<link>>` `<<button>>` `<<linkappend>>` `<<linkprepend>>` `<<linkreplace>>` `<<back>>` `<<return>>` `<<checkbox>>` `<<radiobutton>>` `<<textbox>>` `<<textarea>>` `<<numberbox>>` `<<cycle>>` `<<listbox>>` |
+| Audio | `<<cacheaudio>>` `<<audio>>` `<<createaudiogroup>>` `<<createplaylist>>` `<<masteraudio>>` `<<playlist>>` `<<removeaudiogroup>>` `<<removeplaylist>>` `<<waitforaudio>>` |
+| DOM | `<<addclass>>` `<<removeclass>>` `<<toggleclass>>` `<<append>>` `<<prepend>>` `<<replace>>` `<<copy>>` `<<remove>>` |
+
+<Note>
+Story `$variables` are prefixed with a dollar sign and persist across passages. Temporary `_variables` are prefixed with an underscore and are reset on each new passage render. Both kinds can be used freely inside any macro expression.
+</Note>

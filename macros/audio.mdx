@@ -1,0 +1,304 @@
+---
+title: "Audio Macros: Tracks, Groups & Playlists in Tea Format"
+description: "Covers Tea's audio macros: cacheaudio, audio, createaudiogroup, createplaylist, masteraudio, playlist, removeaudiogroup, removeplaylist, and waitforaudio."
+---
+
+Tea's audio macros wrap the built-in `SimpleAudio` subsystem. They let you register tracks, control playback with fade support, organize tracks into groups or playlists, and manage master volume—all from within passage text.
+
+<Warning>
+The audio subsystem has browser-imposed limitations around autoplay, format support, and data loading. Read the [SimpleAudio API limitations](/api/simpleaudio#limitations) before building audio-heavy stories. Network-hosted audio in particular can consume significant player bandwidth.
+</Warning>
+
+---
+
+## `<<cacheaudio trackId sourceList>>`
+
+Registers an audio track for use by all other audio macros. Supply one or more source URLs so the browser can pick a format it supports. Best done in the `StoryInit` special passage.
+
+```twee
+→ Single source via relative URL
+<<cacheaudio "boom" "media/audio/explosion.mp3">>
+
+→ Single source via an audio passage name
+<<cacheaudio "boom" "explosion">>
+
+→ Multiple sources (browser picks the first it supports)
+<<cacheaudio "bgm_space" "media/audio/space_quest.mp3" "media/audio/space_quest.ogg">>
+
+→ Source with an explicit format specifier (when the extension can't be detected)
+<<cacheaudio "what" "mp3|http://an-audio-service.com/a-user/a-track-id">>
+```
+
+<ParamField body="trackId" type="string" required>
+  A unique identifier string used to reference the track in other audio macros.
+</ParamField>
+<ParamField body="sourceList" type="strings" required>
+  One or more space-separated audio sources: relative URLs, absolute URLs, audio passage names, or data URIs. Prepend a format specifier (`mp3|`, `ogg|`, `wav|`, etc.) when the format cannot be inferred from the URL.
+</ParamField>
+
+---
+
+## `<<audio trackIdList actionList>>`
+
+Controls playback of one or more tracks. Accepts individual track IDs, predefined group IDs, or custom group IDs as the target list.
+
+<Tabs>
+  <Tab title="Basic playback">
+    ```twee
+    → Start, pause, and stop a track
+    <<audio "bgm_space" play>>
+    <<audio "bgm_space" pause>>
+    <<audio "bgm_space" stop>>
+
+    → Play at 50% volume
+    <<audio "bgm_space" volume 0.5 play>>
+
+    → Start 120 seconds in
+    <<audio "bgm_space" time 120 play>>
+
+    → Loop playback
+    <<audio "bgm_space" loop play>>
+
+    → Navigate to a passage when the track ends normally
+    <<audio "bgm_space" play goto "Peace Moon">>
+    ```
+  </Tab>
+  <Tab title="Fading">
+    ```twee
+    → Fade in from current volume to 100% over 5 seconds
+    <<audio "bgm_space" volume 0 fadein>>
+
+    → Fade out from current volume to 0% over 5 seconds
+    <<audio "bgm_space" volume 0.75 fadeout>>
+
+    → Fade to a specific level over 5 seconds
+    <<audio "bgm_space" volume 0.25 fadeto 0.75>>
+
+    → Fade to a specific level over 30 seconds
+    <<audio "bgm_space" volume 0.25 fadeoverto 30 0.75>>
+    ```
+  </Tab>
+  <Tab title="Volume & mute">
+    ```twee
+    → Set volume to 40% without changing playback state
+    <<audio "bgm_space" volume 0.40>>
+
+    → Mute / unmute without changing playback state
+    <<audio "bgm_space" mute>>
+    <<audio "bgm_space" unmute>>
+
+    → Seek to 90 seconds without changing playback state
+    <<audio "bgm_space" time 90>>
+    ```
+  </Tab>
+  <Tab title="Group IDs">
+    ```twee
+    → Predefined groups: :all :looped :muted :paused :playing :stopped
+    <<audio ":paused" play>>
+    <<audio ":playing" pause>>
+    <<audio ":all" stop>>
+
+    → Exclusion syntax :not()
+    <<audio ":playing:not(:ui)" stop>>
+    <<audio ":all:not(:ui)" volume 0.40>>
+    ```
+  </Tab>
+  <Tab title="Load / unload">
+    ```twee
+    → Force the track to drop buffered data and reload
+    <<audio "bgm_space" load>>
+
+    → Drop all buffered data (playback impossible until load)
+    <<audio "bgm_space" unload>>
+    ```
+  </Tab>
+</Tabs>
+
+**Available actions:**
+
+| Action | Description |
+|---|---|
+| `play` | Start playback |
+| `pause` | Pause playback |
+| `stop` | Stop playback |
+| `loop` | Enable looping |
+| `unloop` | Disable looping (default) |
+| `mute` | Mute volume |
+| `unmute` | Unmute volume (default) |
+| `volume level` | Set volume (0–1) |
+| `time seconds` | Seek to position |
+| `fadein` | Fade to volume 1 over 5 seconds |
+| `fadeout` | Fade to volume 0 over 5 seconds |
+| `fadeto level` | Fade to level over 5 seconds |
+| `fadeoverto seconds level` | Fade to level over N seconds |
+| `goto passage` | Navigate when track ends normally |
+| `load` | Force reload of buffered data |
+| `unload` | Drop all buffered data |
+
+<Note>
+`<<audio>>` cannot affect tracks whose ownership has been transferred to a playlist (those registered with the `own` action in `<<createplaylist>>`). Owned tracks are under exclusive control of their playlist.
+</Note>
+
+---
+
+## `<<createaudiogroup groupId>> … <</createaudiogroup>>`
+
+Collects previously cached tracks into a named group using `<<track>>` child macros. Groups let you target several tracks simultaneously via `<<audio>>` without listing each one individually. Group IDs must start with a colon.
+
+```twee
+→ Best placed in StoryInit
+<<cacheaudio "ui_beep"  "media/audio/ui/beep.mp3">>
+<<cacheaudio "ui_boop"  "media/audio/ui/boop.mp3">>
+<<cacheaudio "ui_swish" "media/audio/ui/swish.mp3">>
+
+<<createaudiogroup ":ui">>
+    <<track "ui_beep">>
+    <<track "ui_boop">>
+    <<track "ui_swish">>
+<</createaudiogroup>>
+
+→ Now use the group
+<<audio ":ui" volume 0.5>>
+<<audio ":playing:not(:ui)" stop>>
+```
+
+<ParamField body="groupId" type="string" required>
+  The unique group ID. Must start with a colon (e.g. `:ui`, `:music`). Cannot reuse predefined IDs (`:all`, `:looped`, `:muted`, `:paused`, `:playing`, `:stopped`) or `:not`.
+</ParamField>
+
+---
+
+## `<<createplaylist listId>> … <</createplaylist>>`
+
+Creates a playlist from cached tracks via `<<track>>` children. Each track may optionally set a volume and/or be registered as an owned copy (exclusively controlled by the playlist).
+
+```twee
+<<cacheaudio "swamped"       "media/audio/Swamped.mp3">>
+<<cacheaudio "heavens_a_lie" "media/audio/Heaven's_A_Lie.mp3">>
+<<cacheaudio "closer"        "media/audio/Closer.mp3">>
+<<cacheaudio "to_the_edge"   "media/audio/To_The_Edge.mp3">>
+
+<<createplaylist "bgm_lacuna">>
+    <<track "swamped"       volume 1>>
+    <<track "heavens_a_lie" volume 0.5>>
+    <<track "closer"        own>>
+    <<track "to_the_edge"   volume 1 own>>
+<</createplaylist>>
+```
+
+<ParamField body="listId" type="string" required>
+  The unique ID for the playlist.
+</ParamField>
+
+**`<<track>>` actions within `<<createplaylist>>`:**
+
+| Action | Description |
+|---|---|
+| `volume level` | Optional. Base volume for this track in the playlist (0–1). |
+| `own` | Optional. Creates an independent copy solely controlled by this playlist. |
+
+---
+
+## `<<masteraudio actionList>>`
+
+Controls the master audio bus—affects all tracks simultaneously.
+
+```twee
+<<masteraudio stop>>
+<<masteraudio volume 0.40>>
+<<masteraudio mute>>
+<<masteraudio unmute>>
+<<masteraudio muteonhide>>
+<<masteraudio nomuteonhide>>
+
+→ Load / unload all tracks (use with care on networked audio)
+<<masteraudio load>>
+<<masteraudio unload>>
+```
+
+| Action | Description |
+|---|---|
+| `stop` | Stop all tracks |
+| `mute` | Mute master volume |
+| `unmute` | Unmute master volume (default) |
+| `volume level` | Set master volume (0–1) |
+| `muteonhide` | Auto-mute when browser tab loses visibility |
+| `nomuteonhide` | Disable auto-mute on hide (default) |
+| `load` | Force all tracks to reload |
+| `unload` | Drop all track data |
+
+---
+
+## `<<playlist listId actionList>>`
+
+Controls playback of a named playlist created via `<<createplaylist>>`. Supports the same fade actions as `<<audio>>` plus playlist-specific actions like `shuffle` and `skip`.
+
+```twee
+→ Play, pause, stop
+<<playlist "bgm_lacuna" play>>
+<<playlist "bgm_lacuna" pause>>
+<<playlist "bgm_lacuna" stop>>
+
+→ Volume and fading
+<<playlist "bgm_lacuna" volume 0.5 play>>
+<<playlist "bgm_lacuna" volume 0 fadein>>
+<<playlist "bgm_lacuna" volume 0.75 fadeout>>
+<<playlist "bgm_lacuna" volume 0.25 fadeto 0.75>>
+<<playlist "bgm_lacuna" volume 0.25 fadeoverto 30 0.75>>
+
+→ Shuffle and loop
+<<playlist "bgm_lacuna" shuffle play>>
+<<playlist "bgm_lacuna" unloop play>>
+
+→ Skip current track
+<<playlist "bgm_lacuna" skip>>
+
+→ Mute / unmute
+<<playlist "bgm_lacuna" mute>>
+<<playlist "bgm_lacuna" unmute>>
+```
+
+---
+
+## `<<removeaudiogroup groupId>>`
+
+Removes a custom audio group. The predefined groups (`:all`, `:looped`, `:muted`, `:paused`, `:playing`, `:stopped`) and `:not` cannot be removed.
+
+```twee
+<<removeaudiogroup ":ui">>
+```
+
+---
+
+## `<<removeplaylist listId>>`
+
+Removes a playlist that was created with `<<createplaylist>>`.
+
+```twee
+<<removeplaylist "bgm_lacuna">>
+```
+
+---
+
+## `<<waitforaudio>>`
+
+Displays the loading screen until all currently registered audio has either loaded to a playable state or aborted due to errors. Invoke it once after registering the tracks you want to preload.
+
+```twee
+→ Wait for all registered tracks
+<<cacheaudio "a" "a_track.mp3">>
+<<cacheaudio "b" "b_track.mp3">>
+<<cacheaudio "c" "c_track.mp3">>
+<<waitforaudio>>
+
+→ Selective preload — only wait for "a" and "b"; register "c" and "d" later
+<<cacheaudio "a" "a_track.mp3">>
+<<cacheaudio "b" "b_track.mp3">>
+<<waitforaudio>>
+<<cacheaudio "c" "c_track.mp3">>
+<<cacheaudio "d" "d_track.mp3">>
+```
+
+<Note>
+`<<waitforaudio>>` should be called once, after `<<cacheaudio>>` and any `<<createplaylist>>` definitions that use the `copy` action, for the loading screen to reflect those tracks. Calling it multiple times is unnecessary.
+</Note>

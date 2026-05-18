@@ -1,0 +1,190 @@
+---
+title: "Passage API: Reading and Processing Passage Content"
+description: "Reference for the Tea Passage prototype. Access the id, name, tags, and raw text properties, and call processText() to get render-ready content."
+---
+
+`Passage` instances represent individual passages in the compiled story. They are returned by [`Story.get()`](/api/story#storygetsname) and can also be iterated over via `Story.filter()` and `Story.find()`. All properties are effectively **read-only** — mutating them may produce undefined behavior.
+
+<Note>
+  You do not construct `Passage` objects directly. Always obtain them through `Story.get()`, `Story.filter()`, or `Story.find()`.
+</Note>
+
+## Getters
+
+### `<Passage>.id`
+
+<ResponseField name="id" type="string">
+  The passage's DOM-compatible ID, prefixed with `"passage-"` and derived by slugifying the passage name.
+</ResponseField>
+
+Returns the DOM-compatible ID of the passage. Constructed as `"passage-" + createSlug(name)`.
+
+```js
+const p = Story.get("The Dark Forest");
+p.id // e.g., "passage-the-dark-forest"
+```
+
+---
+
+### `<Passage>.name`
+
+<ResponseField name="name" type="string">
+  The human-readable name of the passage, with HTML entities decoded.
+</ResponseField>
+
+Returns the passage name exactly as it appears in the story source. HTML entities in the raw element attribute are decoded before being stored.
+
+```js
+const p = Story.get("The Dark Forest");
+p.name // "The Dark Forest"
+```
+
+---
+
+### `<Passage>.tags`
+
+<ResponseField name="tags" type="Array<string>">
+  A frozen, deduplicated array of the passage's tag strings.
+</ResponseField>
+
+Returns the passage's tags as an immutable array of unique strings. Tags are split on whitespace and deduplicated when the `Passage` is constructed.
+
+```js
+const p = Story.get("Forest Clearing");
+p.tags // e.g., ["forest", "outdoor", "safe"]
+
+// Check for a specific tag
+if (p.tags.includes("forest")) {
+  // this passage is tagged "forest"
+}
+```
+
+---
+
+### `<Passage>.text`
+
+<ResponseField name="text" type="string">
+  The raw, unprocessed TwineScript text of the passage.
+</ResponseField>
+
+Returns the raw passage text as it exists in the compiled story data, with platform-specific encoding decoded (e.g., `\r` characters stripped for Twine 2). If the passage does not exist in the store (i.e., the `Passage` was constructed from a missing-passage lookup), returns an error markup string.
+
+```js
+const p = Story.get("The Dark Forest");
+p.text // e.g., "You step into the darkness.\n\n[[Go back|Forest Edge]]"
+```
+
+<Tip>
+  Use `processText()` rather than `text` when you need the content ready for rendering — it applies `nobr` tag processing, image passage transclusion, and `Config.passages.onProcess` transformations.
+</Tip>
+
+## Methods
+
+### `<Passage>.processText()`
+
+<ResponseField name="returns" type="string">
+  The fully processed passage text, ready for passage into the Wikifier.
+</ResponseField>
+
+Returns the passage text after applying the following transforms in order:
+
+1. **`Config.passages.onProcess` callback** — if configured, the raw text is passed through the user-supplied function first.
+2. **`nobr` processing** — if `Config.passages.nobr` is `true` or the passage has the `nobr` tag, leading/trailing newlines are stripped and internal newline sequences are collapsed to single spaces.
+3. **Image passage transclusion** — passages tagged `Twine.image` have their text wrapped in `[img[…]]` markup automatically.
+
+```js
+const p = Story.get("The Ducky");
+p.processText() // returns the processed, render-ready text
+```
+
+<CodeGroup>
+
+```js Retrieve and process a passage
+const passage = Story.get("Forest Clearing");
+
+// Raw text — may contain newlines, raw markup, etc.
+console.log(passage.text);
+
+// Processed text — nobr applied, onProcess callback applied
+console.log(passage.processText());
+```
+
+```js Check tags before processing
+const passage = Story.get("Pond Scene");
+
+if (passage.tags.includes("nobr")) {
+  // processText() will strip newlines for this passage
+}
+
+const rendered = passage.processText();
+```
+
+</CodeGroup>
+
+## Usage examples
+
+<AccordionGroup>
+
+  <Accordion title="Reading a passage's properties">
+
+    ```js
+    const p = Story.get("The Ducky");
+
+    p.id          // "passage-the-ducky"
+    p.name        // "The Ducky"
+    p.tags        // e.g., ["pond", "animal"]
+    p.text        // raw TwineScript text
+    p.processText() // processed, render-ready text
+    ```
+
+  </Accordion>
+
+  <Accordion title="Filtering passages by tag">
+
+    ```js
+    // All passages tagged "chapter"
+    const chapters = Story.filter(function (p) {
+      return p.tags.includes("chapter");
+    });
+
+    chapters.forEach(function (p) {
+      console.log(p.name, p.tags);
+    });
+    ```
+
+  </Accordion>
+
+  <Accordion title="Guarding against missing passages">
+
+    `Story.get()` never returns `null` — it returns an empty `Passage` whose `text` is an error message. Use `Story.has()` to guard when the passage may not exist.
+
+    ```js
+    if (Story.has("Optional Scene")) {
+      const p = Story.get("Optional Scene");
+      // safe to use p.text and p.processText()
+    }
+    ```
+
+  </Accordion>
+
+  <Accordion title="Using processText() with Config.passages.onProcess">
+
+    When `Config.passages.onProcess` is set, `processText()` passes an abbreviated `{ name, tags, text }` object to your callback. The callback's return value replaces the text before `nobr` processing occurs.
+
+    ```js
+    // In Story JavaScript
+    Config.passages.onProcess = (p) => {
+      // Replace "the hero" with the player's chosen name
+      return p.text.replace(/\bthe hero\b/gi, State.variables.playerName);
+    };
+    ```
+
+    ```js
+    // Later, processText() transparently applies the substitution
+    const p = Story.get("Battle Scene");
+    p.processText(); // "the hero" → player's name, then nobr applied if needed
+    ```
+
+  </Accordion>
+
+</AccordionGroup>

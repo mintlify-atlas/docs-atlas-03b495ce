@@ -1,0 +1,270 @@
+---
+title: "MacroContext API: Macro Handler this Context Object"
+description: "Full reference for the MacroContext object — the this context inside every macro handler, covering args, payload, output, wiki(), error(), and more."
+---
+
+When Tea calls a macro's `handler` function, it sets `this` to a **MacroContext** instance that provides everything the handler needs: the parsed argument list, the DOM output element to write into, the inner content of container macros, and methods for rendering wiki markup, reporting errors, and navigating the ancestor macro chain.
+
+<Note>
+  MacroContext is not instantiated directly. You receive one as `this` inside every `handler` function passed to [`Macro.add()`](/api/macro).
+</Note>
+
+---
+
+## Properties
+
+### `this.args` → `Array<any>`
+
+An array of discrete arguments parsed from the macro's argument string. TwineScript operators and expressions are evaluated before parsing.
+
+```js
+// Given: <<someMacro "a" "b" "c">>
+this.args.length  // 3
+this.args[0]      // 'a'
+this.args[1]      // 'b'
+this.args[2]      // 'c'
+```
+
+### `this.args.full` → `string`
+
+The argument string after all TwineScript syntax elements have been converted to their native JavaScript equivalents.
+
+```js
+// Given: <<if $score is 10>>
+this.args.full  // 'State.variables.score === 10'
+```
+
+### `this.args.raw` → `string`
+
+The raw, unprocessed argument string exactly as it appeared in the passage.
+
+```js
+// Given: <<if "a" is "b">>
+this.args.raw  // '"a" is "b"'
+```
+
+### `this.name` → `string`
+
+The canonical name of the macro (resolves alias chains to the original name).
+
+```js
+// Given: <<someMacro …>>
+this.name  // 'someMacro'
+```
+
+### `this.output` → `HTMLElement`
+
+The DOM element into which the macro should render its output. Pass this to `jQuery()` or `new Wikifier()` to write content.
+
+```js
+// Using jQuery
+jQuery(this.output).wiki('Some //awesome// markup!');
+
+// Using Wikifier directly
+new Wikifier(this.output, 'Some //awesome// markup!');
+```
+
+### `this.parent` → `Object | null`
+
+The MacroContext of the immediately enclosing macro, or `null` if this macro has no parent.
+
+```js
+if (this.parent !== null) {
+  console.log('enclosed by:', this.parent.name);
+}
+```
+
+### `this.parser` → `Wikifier`
+
+The Wikifier parser instance that triggered this macro call.
+
+### `this.payload` → `Array<Object> | null`
+
+For container macros (those with `tags` in their definition), this is an array of payload objects — one per tag block. For self-closing macros it is `null`.
+
+Each payload object has:
+
+<ResponseField name="name" type="string">
+  The name of this tag block (the opening tag name, or a child tag name such as `"else"`).
+</ResponseField>
+
+<ResponseField name="args" type="Array<any>">
+  Discrete arguments for this tag block. Includes `args.full` and `args.raw` sub-properties.
+</ResponseField>
+
+<ResponseField name="contents" type="string">
+  The raw wiki-markup text between this tag and the next tag.
+</ResponseField>
+
+```js
+// Given: <<myMacro>>...first block...<</myMacro>>
+// payload[0].name     → 'myMacro'
+// payload[0].contents → '...first block...'
+```
+
+### `this.self` → `Object`
+
+The macro's definition object — the same object passed to `Macro.add()`. Useful for reading custom properties you placed on the definition.
+
+---
+
+## Methods
+
+### `this.error(message)` → `boolean`
+
+Renders an error message prefixed with the macro's name into the output element and returns `false`. Use a `return this.error(...)` pattern to abort handler execution on bad input.
+
+<ParamField path="message" type="string" required>
+  The error message to display.
+</ParamField>
+
+<ResponseField name="returns" type="boolean">
+  Always returns `false`.
+</ResponseField>
+
+```js
+// Given: <<someMacro …>>
+return this.error('expected at least one argument');
+// Outputs: <<someMacro>>: expected at least one argument
+```
+
+### `this.wiki(sources…)`
+
+Parses one or more wiki-markup strings and appends the rendered result to `this.output`. Shorthand for creating a `Wikifier` against the output element.
+
+<ParamField path="sources" type="string" required>
+  One or more wiki-markup strings to render in sequence.
+</ParamField>
+
+```js
+this.wiki('Who //are// you?');
+// Outputs: Who <em>are</em> you?
+
+this.wiki(
+  'Goodnight… ',
+  'sweet prince.'
+);
+// Outputs: Goodnight… sweet prince.
+```
+
+### `this.contextFilter(predicate)` → `Array<Object>`
+
+Returns an array of all ancestor MacroContext objects (walking up the `parent` chain) for which `predicate` returns `true`. Returns an empty array if none match.
+
+<ParamField path="predicate" type="Function" required>
+  A function that receives each ancestor context and returns a boolean.
+</ParamField>
+
+<ResponseField name="returns" type="Array<Object>">
+  Array of matching ancestor MacroContext objects.
+</ResponseField>
+
+```js
+var isInclude = function (ctx) { return ctx.name === 'include'; };
+this.contextFilter(isInclude);
+// Returns all <<include>> macro ancestors
+```
+
+### `this.contextFind(predicate)` → `Object | undefined`
+
+Returns the first ancestor MacroContext for which `predicate` returns `true`, or `undefined` if none match.
+
+<ParamField path="predicate" type="Function" required>
+  A function that receives each ancestor context and returns a boolean.
+</ParamField>
+
+<ResponseField name="returns" type="Object | undefined">
+  The first matching ancestor context, or `undefined`.
+</ResponseField>
+
+```js
+var isInclude = function (ctx) { return ctx.name === 'include'; };
+var nearest = this.contextFind(isInclude);
+```
+
+### `this.contextSome(predicate)` → `boolean`
+
+Returns `true` if any ancestor MacroContext satisfies the predicate.
+
+<ParamField path="predicate" type="Function" required>
+  A function that receives each ancestor context and returns a boolean.
+</ParamField>
+
+<ResponseField name="returns" type="boolean">
+  `true` if at least one ancestor passes.
+</ResponseField>
+
+```js
+var isInclude = function (ctx) { return ctx.name === 'include'; };
+if (this.contextSome(isInclude)) {
+  // this macro is nested inside an <<include>>
+}
+```
+
+### `this.shadowHandler(callback [, doneCallback [, startCallback]])` → `Function`
+
+Returns a wrapper function that gives the `callback` access to variable shadows established by the `<<capture>>` macro. Use this whenever you need an asynchronous callback — such as a DOM event handler — to correctly read or write story/temporary variables that have been captured.
+
+<Warning>
+  Only needed when your macro attaches asynchronous callbacks that touch variables shadowed by `<<capture>>`. If you don't use `<<capture>>`, you can ignore this method.
+</Warning>
+
+<ParamField path="callback" type="Function" required>
+  The main asynchronous function. Receives access to shadowed variables.
+</ParamField>
+
+<ParamField path="doneCallback" type="Function">
+  Optional cleanup function called after `callback` returns. Does not receive shadow access.
+</ParamField>
+
+<ParamField path="startCallback" type="Function">
+  Optional initialization function called before `callback` runs. Does not receive shadow access.
+</ParamField>
+
+<ResponseField name="returns" type="Function">
+  A wrapped function suitable for use as an event handler or async callback.
+</ResponseField>
+
+```js
+$someElement.on('click', this.shadowHandler(function (ev) {
+  // access $capturedVar correctly here
+}));
+```
+
+---
+
+## Complete handler example
+
+The following custom `<<counted>>` macro renders its contents and records how many times it has been visited:
+
+```js
+Macro.add('counted', {
+  tags : null,
+  handler : function () {
+    if (this.args.length === 0) {
+      return this.error('a counter variable name is required');
+    }
+
+    var varName = this.args[0];
+
+    // Validate it looks like a story variable
+    if (varName[0] !== '$') {
+      return this.error('argument must be a $variable');
+    }
+
+    var key = varName.slice(1);
+    State.variables[key] = (State.variables[key] || 0) + 1;
+
+    // Render the inner contents
+    this.wiki(this.payload[0].contents);
+  }
+});
+```
+
+Usage in a passage:
+
+```
+<<counted "$visitCount">>
+  You have read this block $visitCount times.
+<</counted>>
+```

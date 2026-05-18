@@ -1,0 +1,110 @@
+---
+title: "Managing Story State, Sessions, and Saves in Tea Stories"
+description: "Learn how Tea manages story history, playthrough sessions, autosaves, and persistent browser saves — and what happens when each is loaded or restored."
+---
+
+Tea preserves the state of your story in several overlapping ways: a moment-based history that supports forward and backward navigation, a temporary playthrough session stored in the browser that survives accidental refreshes, and configurable browser saves (both manual slots and automatic). Understanding how these systems interact prevents subtle bugs and data loss for your players.
+
+## Story History
+
+The story history is a collection of **moments**. A new moment is created whenever passage navigation occurs — and only when passage navigation occurs. Each moment records the active passage name and the current values of all story variables (those accessed with the `$` sigil).
+
+```twee
+:: one passage
+<<set $var to 1>>
+
+[[another passage]]
+
+:: another passage
+<<link "Click me!">>
+	<<set $var to 2>>
+<</link>>
+```
+
+<Note>
+If you save the story after reaching *another passage*, `$var` is saved as `1`. Clicking the link sets it to `2` in memory, but because no new moment has been created yet, a save at that point still records `$var` as `1`. The next passage navigation creates the next moment and captures the updated value.
+</Note>
+
+The number of moments is limited by `Config.history.maxStates`. As new moments are added, older ones that exceed the limit expire in age order. Expired moments are recorded in a separate expired collection and can no longer be navigated to directly — but all functions and macros that check for the existence of moments (such as `visited()`) search both active and expired moments, so they work correctly even when history is limited to a single moment.
+
+### Config options that affect history
+
+| Setting | Purpose |
+|---|---|
+| `Config.history.maxStates` | Maximum moments kept in the active history. Must be at least `1`. As of ≥2.36.0, unlimited states are no longer allowed. |
+| `Config.history.controls` | Whether the UI bar history forward/backward buttons are shown. |
+| `Config.history.disableDeltas` | Disables delta encoding for history states. Required if you use classes with private fields in story variables. |
+
+## Playthrough Session
+
+<Note>
+The playthrough session and autosaves are distinct systems that are occasionally confused.
+</Note>
+
+Tea automatically stores the current playthrough state to the browser's [session storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage) whenever a new moment is created. Think of it as a special, temporary save that is automatically deleted when the player's browsing session ends.
+
+The session exists to prevent inadvertent progress loss. Mobile browsers in particular may unload background tabs to free memory, which functionally refreshes the page. When Tea reloads, it checks for an existing session and restores it automatically.
+
+<Steps>
+  <Step title="Moment created">
+    Tea stores the current playthrough state to session storage.
+  </Step>
+  <Step title="Browser reloads Tea">
+    If the reload is caused by a refresh, back/forward navigation, or the tab being unloaded — Tea restores the session.
+  </Step>
+  <Step title="Story restarted via Tea's own methods">
+    If restarted via the built-in *Restart* button, `UI.restart()`, or `Engine.restart()` — the session is **not** restored, and the story begins fresh.
+  </Step>
+</Steps>
+
+## Autosaves
+
+Autosaves are ordinary browser saves that are created automatically. They can be configured to fire on every turn or only on specific turns.
+
+Use `Config.saves.maxAutoSaves` to set how many autosave slots are available, and `Config.saves.isAllowed` to control when new autosaves are created. The default UI includes a *Continue* button that loads the latest save.
+
+<Tip>
+Use `Config.saves.isAllowed` to prevent autosaving on title screens, menus, or other passages where saving mid-visit would be confusing.
+</Tip>
+
+## What Happens When a Save Is Loaded
+
+When a save is loaded, the state it contains **replaces** the current state entirely. The previous state is not merged or combined — it is discarded completely. This applies whether the state comes from a manual slot save, an autosave, or the playthrough session.
+
+```twee
+:: StoryInit
+<<set $x to 0>>
+
+:: Start
+$$x is <<if def $x>> $x <<else>> undefined <</if>>
+```
+
+If you save here, then add `<<set $y to 1>>` to `StoryInit` and reload the old save, `$y` will be `undefined` in the loaded state — it simply does not exist there.
+
+<Warning>
+`StoryInit` and `init`-tagged passages **are still executed** even when a save or session is about to be loaded. Changes to story variables (`$`) will be overwritten by the incoming state. Changes to `setup.*` properties, however, persist because `setup` is not part of the serialized state.
+</Warning>
+
+## Refreshing vs Restarting
+
+Every time Tea starts — whether from a fresh load or a browser refresh — the following sequence always runs:
+
+1. CSS, JavaScript, and Widget sections are processed.
+2. `init`-tagged passages and `StoryInit` are processed.
+3. Either the playthrough session is restored (if one exists), or the starting passage is rendered.
+
+When Tea restarts via its own built-in methods (`UI.restart()`, `Engine.restart()`), the playthrough session is skipped and the starting passage is rendered directly.
+
+## $variables vs \_variables
+
+<Tip>
+Use `$` (story) variables for anything that needs to persist across passages or be saved — character stats, inventory, flags. Use `_` (temporary) variables for values that only need to exist within a single passage or macro invocation. Temporary variables are not stored in moments, so they do not bloat save files.
+</Tip>
+
+```twee
+:: a passage
+<<set $playerName to "Alice">>  /* saved in every moment */
+<<set _tempGreeting to "Hello, " + $playerName>>  /* not saved */
+
+_tempGreeting + $playerName
+```

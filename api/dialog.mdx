@@ -1,0 +1,305 @@
+---
+title: "Dialog API: Build, populate, and open modal dialogs"
+description: "Create, populate, open, and close custom modal dialogs in Tea using wiki markup, passage rendering, HTML strings, or raw DOM nodes."
+---
+
+The `Dialog` API is the low-level interface Tea uses to display all of its modal dialogs—alerts, saves, settings, and restart prompts—and the same API is available for your own custom dialogs. The typical workflow is: call `Dialog.create()` to set a title and CSS classes, populate the dialog body with `Dialog.wiki()`, `Dialog.wikiPassage()`, or `Dialog.append()`, then call `Dialog.open()` to show it to the player.
+
+Most methods return a reference to the `Dialog` object itself, so you can chain the entire setup in a single expression.
+
+---
+
+## Dialog.append()
+
+Appends content to the dialog's body element. Returns the `Dialog` object for chaining.
+
+```
+Dialog.append(content)
+```
+
+<ParamField path="content" type="Node | string" required>
+  The content to append. Accepts any value valid for [jQuery's `append()`](https://api.jquery.com/append/)—HTML strings, DOM nodes, jQuery objects, etc.
+</ParamField>
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+<Warning>
+If your content contains Tea/SugarCube wiki markup (e.g., `//italics//` or `''bold''`), use `Dialog.wiki()` instead. `Dialog.append()` treats its argument as raw HTML, not wiki markup.
+</Warning>
+
+```js
+Dialog.append("Cry 'Havoc!', and let slip the <em>dogs</em> of <strong>war</strong>.");
+```
+
+---
+
+## Dialog.body()
+
+Returns a reference to the dialog's body `HTMLElement`.
+
+```
+Dialog.body()
+```
+
+<ResponseField name="returns" type="HTMLElement">
+  The dialog's body element.
+</ResponseField>
+
+<Note>
+In most cases you can use `Dialog.append()` or `Dialog.wiki()` instead of working with the body element directly. `Dialog.body()` is useful when you need to pass the element to jQuery or vanilla DOM methods.
+</Note>
+
+```js
+jQuery(Dialog.body())
+  .append("Cry 'Havoc!', and let slip the <em>dogs</em> of <strong>war</strong>.");
+
+jQuery(Dialog.body())
+  .wiki("Cry 'Havoc!', and let slip the //dogs// of ''war''.");
+```
+
+---
+
+## Dialog.close()
+
+Closes the currently open dialog. Returns the `Dialog` object for chaining.
+
+```
+Dialog.close()
+```
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+```js
+Dialog.close();
+```
+
+---
+
+## Dialog.create()
+
+Prepares the dialog for use by setting its title and optional CSS class names. Returns the `Dialog` object for chaining.
+
+```
+Dialog.create([title [, classNames]])
+```
+
+<ParamField path="title" type="string">
+  The title to display in the dialog's title bar. Pass `null` or omit to show no title.
+</ParamField>
+
+<ParamField path="classNames" type="string">
+  A space-separated list of CSS class names to add to the dialog element, useful for targeting specific dialogs with custom styles.
+</ParamField>
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+<Tabs>
+  <Tab title="No arguments">
+    ```js
+    Dialog.create();
+    ```
+  </Tab>
+  <Tab title="Title only">
+    ```js
+    Dialog.create('Character Sheet');
+    ```
+  </Tab>
+  <Tab title="Class names only">
+    ```js
+    Dialog.create(null, 'charsheet');
+    ```
+  </Tab>
+  <Tab title="Title and class">
+    ```js
+    Dialog.create('Character Sheet', 'charsheet');
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Dialog.empty()
+
+Empties the dialog's body element, removing all content. Returns the `Dialog` object for chaining.
+
+```
+Dialog.empty()
+```
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+```js
+Dialog.empty();
+```
+
+You can chain `Dialog.empty()` to replace the content of an already-open dialog:
+
+```js
+Dialog
+  .empty()
+  .wikiPassage('Quests');
+```
+
+---
+
+## Dialog.isOpen()
+
+Returns whether the dialog is currently open. When `classNames` is provided, also checks that the open dialog has all of those classes.
+
+```
+Dialog.isOpen([classNames])
+```
+
+<ParamField path="classNames" type="string">
+  A space-separated list of CSS class names. When provided, returns `true` only if the dialog is open *and* has all specified classes. Each built-in dialog includes a name-themed class (e.g., the Saves dialog has the class `saves`).
+</ParamField>
+
+<ResponseField name="returns" type="boolean">
+  `true` if the dialog is open (and matches the given classes, if provided).
+</ResponseField>
+
+<Tabs>
+  <Tab title="Any dialog">
+    ```js
+    if (Dialog.isOpen()) {
+      /* code to execute if any dialog is open… */
+    }
+    ```
+  </Tab>
+  <Tab title="Specific dialog">
+    ```js
+    if (Dialog.isOpen('saves')) {
+      /* code to execute if the Saves dialog is open… */
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Dialog.open()
+
+Opens the dialog. Should be called after populating the dialog with content. Returns the `Dialog` object for chaining.
+
+```
+Dialog.open([options [, closeFn]])
+```
+
+<ParamField path="options" type="object">
+  Options controlling dialog presentation. Pass `null` to skip.
+</ParamField>
+
+<ParamField path="options.top" type="number" default="50">
+  Top y-coordinate of the dialog in pixels, without a unit suffix.
+</ParamField>
+
+<ParamField path="closeFn" type="Function">
+  A callback executed every time the dialog is closed.
+</ParamField>
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```js
+    Dialog.open();
+    ```
+  </Tab>
+  <Tab title="With position">
+    ```js
+    Dialog.open({ top: 100 });
+    ```
+  </Tab>
+  <Tab title="With close callback">
+    ```js
+    Dialog.open(null, () => {
+      /* code to execute on close… */
+    });
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Dialog.wiki()
+
+Renders wiki markup and appends the result to the dialog's body. Returns the `Dialog` object for chaining.
+
+```
+Dialog.wiki(wikiMarkup)
+```
+
+<ParamField path="wikiMarkup" type="string" required>
+  The Tea/SugarCube wiki markup string to render.
+</ParamField>
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+<Warning>
+If your content consists of DOM nodes rather than markup strings, use `Dialog.append()` instead.
+</Warning>
+
+```js
+Dialog.wiki("Cry 'Havoc!', and let slip the //dogs// of ''war''.");
+```
+
+---
+
+## Dialog.wikiPassage()
+
+Renders a named passage and appends the result to the dialog's body. Returns the `Dialog` object for chaining.
+
+```
+Dialog.wikiPassage(passageName)
+```
+
+<ParamField path="passageName" type="string" required>
+  The name of the passage to render into the dialog body.
+</ParamField>
+
+<ResponseField name="returns" type="Dialog">
+  The `Dialog` object, for method chaining.
+</ResponseField>
+
+```js
+Dialog.wikiPassage('Inventory');
+```
+
+---
+
+## Complete example
+
+The following shows the full pattern for creating and opening a custom dialog from JavaScript. All four steps can be chained into a single expression.
+
+```js
+Dialog
+  .create('Character Sheet', 'charsheet')
+  .wikiPassage('Player Character')
+  .open({ top: 80 }, () => {
+    console.log('Character sheet closed.');
+  });
+```
+
+<Accordion title="Replacing an open dialog's content">
+  If the dialog is already open and you want to swap its content without reopening it, use `Dialog.empty()` followed by a content method:
+
+  ```js
+  Dialog
+    .empty()
+    .wikiPassage('Quests');
+  ```
+
+  This is useful for multi-page dialog flows where you want to update what is displayed without the close/reopen animation.
+</Accordion>

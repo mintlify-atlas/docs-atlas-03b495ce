@@ -1,0 +1,424 @@
+---
+title: "Setting API: Persistent Player Settings & Preferences"
+description: "Build a persistent settings panel with Tea's Setting API — toggles, lists, ranges, and custom values that survive across sessions."
+---
+
+The `Setting` API lets you define player-facing controls that appear in the built-in Settings dialog and persist across sessions via browser storage. Each setting you register adds a corresponding property to the global `settings` object, which you can read anywhere in your story to branch logic or adjust behavior.
+
+<Warning>
+  All `Setting` API calls **must** be placed in your project's JavaScript section (Story JavaScript in Twine 2, or a `script`-tagged passage in Twine 1/Twee). Settings defined outside of that section will not function correctly.
+</Warning>
+
+---
+
+## The `settings` object
+
+Every setting registered with the `Setting` API automatically adds a property to the global `settings` object. You can read current values from it anywhere in your story:
+
+```js
+// Defined in JavaScript
+Setting.addToggle("night", { label: "Night mode?", default: false });
+
+// Used in a passage or script
+if (settings.night) {
+  $("html").addClass("night-mode");
+}
+```
+
+<Note>
+  You can write directly to `settings` properties (e.g. `settings.theme = "dark"`), but doing so bypasses `Setting.save()`. Always call `Setting.save()` manually afterwards, or use `Setting.setValue()` which calls it for you.
+</Note>
+
+---
+
+## Registering settings
+
+### `Setting.addHeader(name [, desc])`
+
+Adds a visual section header to the Settings dialog. Headers do not create a `settings` property.
+
+<ParamField path="name" type="string" required>
+  The header's display text.
+</ParamField>
+
+<ParamField path="desc" type="string">
+  Optional description rendered below the header. May contain markup.
+</ParamField>
+
+```js
+Setting.addHeader("Accessibility");
+Setting.addHeader("Audio", "Controls for music and sound effects.");
+```
+
+---
+
+### `Setting.addToggle(name, definition)`
+
+Adds a boolean on/off toggle to the Settings dialog and registers `settings[name]` as a `boolean`.
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+<ParamField path="definition" type="object" required>
+  Definition object — see below.
+</ParamField>
+
+**Definition object properties:**
+
+<ResponseField name="label" type="string" required>
+  Label displayed next to the toggle control.
+</ResponseField>
+
+<ResponseField name="desc" type="string">
+  Additional description shown below the label. May contain markup.
+</ResponseField>
+
+<ResponseField name="default" type="boolean">
+  Default value. Defaults to `false` when omitted.
+</ResponseField>
+
+<ResponseField name="onInit" type="Function">
+  Called once during initialization with a [result object](#result-objects) as the sole argument and as `this`.
+</ResponseField>
+
+<ResponseField name="onChange" type="Function">
+  Called whenever the control value changes with a [result object](#result-objects) as the sole argument and as `this`.
+</ResponseField>
+
+<CodeGroup>
+
+```js Basic toggle
+Setting.addToggle("mature", {
+  label : "Show content for mature audiences?"
+}); // default: false
+```
+
+```js Toggle with CSS class callback
+var settingWidescreenHandler = function () {
+  if (settings.widescreen) {
+    $("html").addClass("widescreen");
+  } else {
+    $("html").removeClass("widescreen");
+  }
+};
+
+Setting.addToggle("widescreen", {
+  label    : "Use the full width of the browser window?",
+  default  : false,
+  onInit   : settingWidescreenHandler,
+  onChange : settingWidescreenHandler
+});
+```
+
+</CodeGroup>
+
+---
+
+### `Setting.addList(name, definition)`
+
+Adds a drop-down list to the Settings dialog and registers `settings[name]` as the selected member value.
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+<ParamField path="definition" type="object" required>
+  Definition object — see below.
+</ParamField>
+
+**Definition object properties:**
+
+<ResponseField name="label" type="string" required>
+  Label displayed above or beside the list control.
+</ResponseField>
+
+<ResponseField name="list" type="Array<string>" required>
+  The array of option values. Each member is both a display label and the stored value.
+</ResponseField>
+
+<ResponseField name="desc" type="string">
+  Additional description. May contain markup.
+</ResponseField>
+
+<ResponseField name="default" type="string">
+  Default value. Must equal one of the `list` members. Defaults to the first member when omitted.
+</ResponseField>
+
+<ResponseField name="onInit" type="Function">
+  Called once during initialization with a result object.
+</ResponseField>
+
+<ResponseField name="onChange" type="Function">
+  Called whenever the selected option changes.
+</ResponseField>
+
+<CodeGroup>
+
+```js Difficulty list
+Setting.addList("difficulty", {
+  label   : "Choose a difficulty level.",
+  list    : ["Easy", "Normal", "Hard", "INSANE"],
+  default : "Normal"
+});
+```
+
+```js Theme switcher with callback
+var themeNames = ["(none)", "Bright Lights", "Charcoal", "Midnight"];
+
+var themeHandler = function () {
+  $("html")
+    .removeClass("theme-bright-lights theme-charcoal theme-midnight")
+    .addClass("theme-" + settings.theme.toLowerCase().replace(/ /g, "-"));
+};
+
+Setting.addList("theme", {
+  label    : "Choose a color theme.",
+  list     : themeNames,
+  onInit   : themeHandler,
+  onChange : themeHandler
+}); // default is "(none)" (first member)
+```
+
+</CodeGroup>
+
+---
+
+### `Setting.addRange(name, definition)`
+
+Adds a numeric range slider to the Settings dialog and registers `settings[name]` as a `number`.
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+<ParamField path="definition" type="object" required>
+  Definition object — see below.
+</ParamField>
+
+**Definition object properties:**
+
+<ResponseField name="label" type="string" required>
+  Label displayed next to the slider.
+</ResponseField>
+
+<ResponseField name="min" type="number" required>
+  Minimum value.
+</ResponseField>
+
+<ResponseField name="max" type="number" required>
+  Maximum value.
+</ResponseField>
+
+<ResponseField name="step" type="number" required>
+  Increment size. Must divide evenly into `max - min`.
+</ResponseField>
+
+<ResponseField name="desc" type="string">
+  Additional description. May contain markup.
+</ResponseField>
+
+<ResponseField name="default" type="number">
+  Default value. Defaults to `max` when omitted.
+</ResponseField>
+
+<ResponseField name="onInit" type="Function">
+  Called once during initialization.
+</ResponseField>
+
+<ResponseField name="onChange" type="Function">
+  Called whenever the slider value changes.
+</ResponseField>
+
+```js
+var volumeHandler = function () {
+  SimpleAudio.volume(settings.masterVolume / 10);
+};
+
+Setting.addRange("masterVolume", {
+  label    : "Master volume.",
+  min      : 0,
+  max      : 10,
+  step     : 1,
+  onInit   : volumeHandler,
+  onChange : volumeHandler
+}); // default: 10 (max)
+```
+
+---
+
+### `Setting.addValue(name [, definition])`
+
+Registers a `settings` property **without** adding a visible control to the Settings dialog. Useful for behind-the-scenes values that should persist across sessions.
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+<ParamField path="definition" type="object">
+  Optional definition object — see below.
+</ParamField>
+
+**Definition object properties:**
+
+<ResponseField name="default" type="any">
+  Default value. No type restriction.
+</ResponseField>
+
+<ResponseField name="onInit" type="Function">
+  Called once during initialization with a result object.
+</ResponseField>
+
+<ResponseField name="onChange" type="Function">
+  Called whenever the value changes via `Setting.setValue()`.
+</ResponseField>
+
+```js
+Setting.addValue("lastPlayed");
+
+Setting.addValue("schemaVersion", {
+  default  : 1,
+  onInit   : function () {
+    // run any schema migration needed
+  }
+});
+```
+
+---
+
+## Result objects
+
+The `onInit` and `onChange` callbacks receive a **result object** as both their sole argument and as `this`. Its shape mirrors the definition but reflects the current live values:
+
+| Property | Type | Present for |
+|---|---|---|
+| `name` | `string` | All types |
+| `value` | `any` | All types |
+| `default` | `any` | All types |
+| `list` | `Array<string>` | List only |
+| `min` | `number` | Range only |
+| `max` | `number` | Range only |
+| `step` | `number` | Range only |
+
+---
+
+## Reading and writing values
+
+### `Setting.getValue(name)` → `any`
+
+Returns the current value of the named setting. Equivalent to `settings[name]`.
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+```js
+if (Setting.getValue("disableAudio")) {
+  SimpleAudio.mute(true);
+}
+```
+
+### `Setting.setValue(name, value)`
+
+Sets the named setting to a new value and automatically calls `Setting.save()`.
+
+<Warning>
+  When changing a setting that has an associated control, ensure the value is valid for that control type — e.g. do not set a range-type setting to a string or an out-of-range number.
+</Warning>
+
+<ParamField path="name" type="string" required>
+  The `settings` property name.
+</ParamField>
+
+<ParamField path="value" type="any" required>
+  The new value for the setting.
+</ParamField>
+
+```js
+Setting.setValue("theme", "Midnight");
+Setting.setValue("masterVolume", 7);
+```
+
+---
+
+## Persistence
+
+### `Setting.load()`
+
+Loads the settings from storage and applies defaults for any missing properties. Called automatically at startup — you should rarely need to call this manually.
+
+```js
+Setting.load();
+```
+
+### `Setting.save()`
+
+Saves the current state of the `settings` object to storage.
+
+<Note>
+  The Settings dialog controls and `Setting.setValue()` call this automatically. Only call it manually when you write directly to `settings` properties.
+</Note>
+
+```js
+settings.theme = "Charcoal";
+Setting.save(); // required when writing directly
+```
+
+### `Setting.reset([name])`
+
+Resets a single setting — or all settings — to their default values.
+
+<ParamField path="name" type="string">
+  Name of the setting to reset. When omitted, all settings are reset.
+</ParamField>
+
+```js
+Setting.reset("difficulty"); // reset one setting
+Setting.reset();             // reset all settings
+```
+
+---
+
+## Practical example: full settings panel
+
+```js
+// === Story JavaScript ===
+
+// Section header
+Setting.addHeader("Display");
+
+// Night mode toggle
+var nightModeHandler = function () {
+  $("html").toggleClass("night-mode", settings.nightMode);
+};
+Setting.addToggle("nightMode", {
+  label    : "Enable night mode?",
+  default  : false,
+  onInit   : nightModeHandler,
+  onChange : nightModeHandler
+});
+
+// Font size range
+var fontSizeHandler = function () {
+  $("html").css("font-size", settings.fontSize + "px");
+};
+Setting.addRange("fontSize", {
+  label    : "Base font size (pixels).",
+  min      : 12,
+  max      : 24,
+  step     : 2,
+  default  : 16,
+  onInit   : fontSizeHandler,
+  onChange : fontSizeHandler
+});
+
+// Section header
+Setting.addHeader("Content");
+
+// Difficulty list
+Setting.addList("difficulty", {
+  label   : "Difficulty level.",
+  list    : ["Easy", "Normal", "Hard"],
+  default : "Normal"
+});
+```

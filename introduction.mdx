@@ -1,9 +1,9 @@
 ---
-title: "Tea: Open-Source Twine Story Format for Interactive Fiction"
-description: "Tea is a free, open-source story format for Twine and Twee, forked from SugarCube 2. Rich macros, state management, audio, saves, and a full scripting API."
+title: "Tea: Interactive Fiction Framework for Twine"
+description: "Tea is a free, open-source story format for Twine/Twee. A fork of SugarCube 2, it provides macros, state management, audio, saves, and a full scripting API."
 ---
 
-Tea is a free (gratis and libre) story format for [Twine](http://twinery.org/) and Twee, forked from the widely-used SugarCube 2 engine. It gives interactive fiction authors a powerful macro language, robust state and save management, audio playback, and a JavaScript-based scripting layer — all in a single self-contained format file.
+Tea is a free (gratis and libre) story format for [Twine](http://twinery.org/) and Twee, forked from the widely-used SugarCube 2 engine. It gives interactive fiction authors a powerful macro language, robust state and save management, audio playback, and a JavaScript-based scripting layer — all in a single self-contained format file you can drop into any Twine project.
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/installation">
@@ -22,14 +22,20 @@ Tea is a free (gratis and libre) story format for [Twine](http://twinery.org/) a
 
 ## Why Tea?
 
-Tea builds on the SugarCube 2 foundation with a rich feature set for modern interactive fiction:
+Tea builds on the rock-solid SugarCube 2 foundation and extends it for modern interactive fiction development:
 
 - **Rich macro language** — 50+ built-in macros covering variables, control flow, interactive UI, DOM manipulation, audio, and more
 - **TwineScript** — full JavaScript-based scripting with story variables, temporary variables, and expression support
 - **State & history** — configurable history depth, PRNG support, and per-save metadata
 - **Comprehensive saves** — browser auto-saves, slot saves, disk export/import, and base64 encoded saves
 - **SimpleAudio** — tracks, groups, and playlists for rich soundscapes
+- **Player settings** — toggles, lists, ranges, and custom values surfaced through the built-in settings UI
 - **Custom macros** — extend Tea with your own macros using the `Macro` and `MacroContext` APIs
+- **Debug tools** — interactive debug bar and test mode for rapid iteration
+
+## How it works
+
+Tea compiles into a single `format.js` file that Twine uses as a story format. When a reader opens your story, Tea's engine initializes the story, processes your passages through the wiki/markup parser, and manages the lifecycle of navigation, state, and UI.
 
 <CardGroup cols={2}>
   <Card title="Core Language" icon="pen-line" href="/core/markup">

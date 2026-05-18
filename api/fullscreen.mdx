@@ -1,0 +1,326 @@
+---
+title: "Fullscreen API: Enter and exit browser fullscreen mode"
+description: "Request, exit, and toggle browser fullscreen mode in Tea stories, and listen for fullscreen change and error events on any element."
+---
+
+The `Fullscreen` API wraps the browser's native Fullscreen API with a consistent interface for entering and exiting fullscreen mode, toggling it, querying its state, and attaching event handlers for change and error events. Because browser support varies, always check `Fullscreen.isEnabled()` before making a request.
+
+<Warning>
+Fullscreen requests must be initiated by the player via a direct interaction (click or touch). You cannot call `Fullscreen.request()` or `Fullscreen.toggle()` from code that runs automatically—for example, in a passage's body or a `PassageHeader` passage. Attach a button or link that triggers the request.
+</Warning>
+
+---
+
+## Fullscreen.element
+
+A getter that returns the element currently displayed in fullscreen mode, or `null` if fullscreen is not active.
+
+<ResponseField name="returns" type="HTMLElement | null">
+  The current fullscreen element, or `null` when not in fullscreen mode.
+</ResponseField>
+
+```js
+// Get the element currently shown in fullscreen.
+const el = Fullscreen.element;
+```
+
+---
+
+## Fullscreen.isEnabled()
+
+Returns whether fullscreen mode is both supported by the browser and currently enabled (not blocked by permissions policy or other constraints).
+
+```
+Fullscreen.isEnabled()
+```
+
+<ResponseField name="returns" type="boolean">
+  `true` if fullscreen is available, `false` otherwise.
+</ResponseField>
+
+```js
+if (Fullscreen.isEnabled()) {
+  /* fullscreen is available; safe to make requests */
+}
+```
+
+---
+
+## Fullscreen.isFullscreen()
+
+Returns whether fullscreen mode is currently active.
+
+```
+Fullscreen.isFullscreen()
+```
+
+<ResponseField name="returns" type="boolean">
+  `true` if the browser is currently in fullscreen mode, `false` otherwise.
+</ResponseField>
+
+```js
+if (Fullscreen.isFullscreen()) {
+  /* story is currently fullscreen */
+}
+```
+
+---
+
+## Fullscreen.request()
+
+Requests that the browser enter fullscreen mode. Returns a `Promise` that resolves when the browser has entered fullscreen, or rejects if the request fails.
+
+```
+Fullscreen.request([options [, requestedEl]])
+```
+
+<ParamField path="options" type="object">
+  A fullscreen options object. Pass `null` or omit to use defaults.
+</ParamField>
+
+<ParamField path="options.navigationUI" type="string" default='"auto"'>
+  Controls the browser's navigation UI in fullscreen. Valid values:
+  - `"auto"` — no preference (browser decides)
+  - `"hide"` — request that navigation UI be hidden; full screen dimensions are used
+  - `"show"` — request that navigation UI be visible; element dimensions are clamped to leave room
+
+  Browsers are not required to honor this setting.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to display in fullscreen. Defaults to the entire page when omitted.
+</ParamField>
+
+<ResponseField name="returns" type="Promise">
+  A `Promise` that resolves on success or rejects on failure.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Entire page">
+    ```js
+    Fullscreen.request();
+    ```
+  </Tab>
+  <Tab title="Specific element">
+    ```js
+    Fullscreen.request({ navigationUI: "show" }, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen.exit()
+
+Requests that the browser exit fullscreen mode. Returns a `Promise` that resolves once the browser has exited fullscreen.
+
+```
+Fullscreen.exit()
+```
+
+<ResponseField name="returns" type="Promise">
+  A `Promise` that resolves on success or rejects on failure.
+</ResponseField>
+
+```js
+Fullscreen.exit();
+```
+
+---
+
+## Fullscreen.toggle()
+
+Requests that the browser toggle fullscreen mode: enters fullscreen if not active, exits if active. Returns a `Promise`.
+
+```
+Fullscreen.toggle([options [, requestedEl]])
+```
+
+<ParamField path="options" type="object">
+  A fullscreen options object. See [`Fullscreen.request()`](#fullscreenrequest) for the full options reference.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to use when entering fullscreen. Defaults to the entire page when omitted.
+</ParamField>
+
+<ResponseField name="returns" type="Promise">
+  A `Promise` that resolves on success or rejects on failure.
+</ResponseField>
+
+<Tabs>
+  <Tab title="Entire page">
+    ```js
+    Fullscreen.toggle();
+    ```
+  </Tab>
+  <Tab title="Specific element">
+    ```js
+    Fullscreen.toggle({ navigationUI: "show" }, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen.onChange()
+
+Attaches a handler function for fullscreen change events. The handler is called whenever the browser enters or exits fullscreen mode.
+
+```
+Fullscreen.onChange(handlerFn [, requestedEl])
+```
+
+<ParamField path="handlerFn" type="Function" required>
+  The function to invoke when the fullscreen state changes. Receives the event object as its argument.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to attach the handler to. Defaults to the document when omitted.
+</ParamField>
+
+<Tabs>
+  <Tab title="Document-level handler">
+    ```js
+    Fullscreen.onChange(function (ev) {
+      /* fullscreen mode changed, so do something */
+    });
+    ```
+  </Tab>
+  <Tab title="Element-level handler">
+    ```js
+    Fullscreen.onChange(function (ev) {
+      /* fullscreen mode changed on myElement */
+    }, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen.offChange()
+
+Removes fullscreen change event handlers previously attached with `Fullscreen.onChange()`.
+
+```
+Fullscreen.offChange([handlerFn [, requestedEl]])
+```
+
+<ParamField path="handlerFn" type="Function">
+  The specific handler function to remove. If omitted, all change handlers are removed.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to remove the handler(s) from. Defaults to the document when omitted.
+</ParamField>
+
+<Tabs>
+  <Tab title="Remove all handlers">
+    ```js
+    Fullscreen.offChange();
+    ```
+  </Tab>
+  <Tab title="Remove specific handler">
+    ```js
+    /* NOTE: Requires that the original handler function was saved. */
+    Fullscreen.offChange(originalHandlerFn);
+    ```
+  </Tab>
+  <Tab title="From specific element">
+    ```js
+    Fullscreen.offChange(null, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen.onError()
+
+Attaches a handler function for fullscreen error events, called when a fullscreen request or exit fails.
+
+```
+Fullscreen.onError(handlerFn [, requestedEl])
+```
+
+<ParamField path="handlerFn" type="Function" required>
+  The function to invoke when a fullscreen error occurs. Receives the event object as its argument.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to attach the handler to. Defaults to the document when omitted.
+</ParamField>
+
+<Tabs>
+  <Tab title="Document-level handler">
+    ```js
+    Fullscreen.onError(function (ev) {
+      /* fullscreen mode encountered an error */
+    });
+    ```
+  </Tab>
+  <Tab title="Element-level handler">
+    ```js
+    Fullscreen.onError(function (ev) {
+      /* fullscreen error on myElement */
+    }, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen.offError()
+
+Removes fullscreen error event handlers previously attached with `Fullscreen.onError()`.
+
+```
+Fullscreen.offError([handlerFn [, requestedEl]])
+```
+
+<ParamField path="handlerFn" type="Function">
+  The specific handler function to remove. If omitted, all error handlers are removed.
+</ParamField>
+
+<ParamField path="requestedEl" type="HTMLElement">
+  The element to remove the handler(s) from. Defaults to the document when omitted.
+</ParamField>
+
+<Tabs>
+  <Tab title="Remove all handlers">
+    ```js
+    Fullscreen.offError();
+    ```
+  </Tab>
+  <Tab title="Remove specific handler">
+    ```js
+    /* NOTE: Requires that the original handler function was saved. */
+    Fullscreen.offError(originalHandlerFn);
+    ```
+  </Tab>
+  <Tab title="From specific element">
+    ```js
+    Fullscreen.offError(null, myElement);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Fullscreen backgrounds
+
+When using fullscreen mode with custom backgrounds, place background styles on the `body` element rather than the `html` element.
+
+```css
+body {
+  background: #111 fixed url("images/background.png") center / contain no-repeat;
+}
+```
+
+<Warning>
+Do not place `background` properties on the `html` element in addition to `body`. Doing so can cause background jitter in some browsers when scrolling outside of fullscreen mode.
+</Warning>
+
+<Tip>
+If you set a background image using the `background` shorthand property, always include a `background-color` value as well (either within the shorthand or as a separate property immediately after). The `background` shorthand resets the background color, and without an explicit color, the browser's default may show through if the image does not cover the full viewport.
+</Tip>

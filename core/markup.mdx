@@ -1,0 +1,361 @@
+---
+title: "Tea Wiki Markup: Full Syntax Reference and Examples"
+description: "Complete reference for Tea's passage markup: links, images, headings, style, lists, code, custom styles, templates, comments, and HTML attributes."
+---
+
+Tea passages are written in a wiki-style markup language inherited from SugarCube 2. The parser converts this lightweight syntax into HTML before display, so you can write rich, formatted story content without typing raw HTML for every element. All markup described here has been available since v2.0.0 unless otherwise noted.
+
+## Naked variable output
+
+Variables in passage text are interpolated automatically — you do not need a print macro for simple values. The following forms are supported:
+
+| Type | Syntax | Example |
+|---|---|---|
+| Simple variable | `$variable` | `$name` |
+| Property access, dot notation | `$variable.property` | `$thing.name` |
+| Index access, square bracket notation | `$variable[numericIndex]` | `$thing[0]` |
+| Property access, square bracket notation | `$variable["property"]` | `$thing["name"]` |
+| Variable index | `$variable[$indexVar]` | `$thing[$member]` |
+
+```twee
+/* Explicitly printing $name via <<print>> */
+Well hello there, <<print $name>>.
+
+/* Implicitly printing $name via naked variable markup */
+Well hello there, $name.
+
+/* Both yield the same output when $name is "Mr. Freeman" */
+Well hello there, Mr. Freeman.
+```
+
+If you need to output a variable literally — without interpolation — escape it using one of the following methods:
+
+```twee
+/* Triple double-quotes (nowiki) */
+The variable """$name""" is set to: $name
+
+/* <nowiki> tag */
+The variable <nowiki>$name</nowiki> is set to: $name
+
+/* Double dollar-sign sigil */
+The variable $$name is set to: $name
+
+/* All three yield: The variable $name is set to: Mr. Freeman */
+```
+
+<Note>
+For anything more complex than a simple lookup — such as a calculation `$variable[_i + 1]` or a method call `$variable.someMethod()` — use a print macro (`<<print>>`, `<<= >>`, or `<<- >>`).
+</Note>
+
+## Link markup
+
+SugarCube's link markup has a required `Link` component and optional `Text` and `Setter` components. The `Link` component may be a passage name or any valid URL. The optional `Setter` component runs when the link is clicked, accepting the same expression syntax as `<<set>>`.
+
+In addition to the standard pipe separator (`|`), Tea supports arrow separators `->` and `<-`. The arrow always points at the `Link` component: `Text->Link` and `Link<-Text`.
+
+<Note>
+The following examples assume `$go` is `"Grocery"` and `$show` is `"Go buy milk"`.
+</Note>
+
+<Tabs>
+  <Tab title="Basic link">
+    ```twee
+    [[Grocery]]
+    [[$go]]
+    ```
+  </Tab>
+  <Tab title="Text | Link">
+    ```twee
+    [[Go buy milk|Grocery]]
+    [[$show|$go]]
+    ```
+  </Tab>
+  <Tab title="Link with setter">
+    ```twee
+    [[Grocery][$bought to "milk"]]
+    [[$go][$bought to "milk"]]
+    ```
+  </Tab>
+  <Tab title="Text | Link with setter">
+    ```twee
+    [[Go buy milk|Grocery][$bought to "milk"]]
+    [[$show|$go][$bought to "milk"]]
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+In Twine 2, using a TwineScript expression as the `Link` component triggers automatic passage creation for a passage named after the expression. To avoid this, use the separate-argument form of the `<<link>>` macro instead.
+</Warning>
+
+## Image markup
+
+Image markup has a required `Image` component and optional `Text` (alt text), `Link`, and `Setter` components. The `Image` value may be a URL or the name of a media (image) passage.
+
+<Note>
+The following examples assume `$src` is `home.png`, `$go` is `"Home"`, and `$show` is `"Go home"`.
+</Note>
+
+<Tabs>
+  <Tab title="Image only">
+    ```twee
+    [img[home.png]]
+    [img[$src]]
+    ```
+  </Tab>
+  <Tab title="Alt text">
+    ```twee
+    [img[Go home|home.png]]
+    [img[$show|$src]]
+    ```
+  </Tab>
+  <Tab title="Linked image">
+    ```twee
+    [img[home.png][Home]]
+    [img[$src][$go]]
+    ```
+  </Tab>
+  <Tab title="Linked with setter">
+    ```twee
+    [img[home.png][Home][$done to true]]
+    [img[$src][$go][$done to true]]
+    ```
+  </Tab>
+</Tabs>
+
+A restricted subset of image markup — allowing only the `Image` component — may also be used inside stylesheets to reference media passages:
+
+```css
+/* Using an external image as the <body> background */
+body {
+  background-image: [img[forest.png]];
+}
+
+/* Using a media (image) passage as the <body> background */
+body {
+  background-image: [img[lagoon]];
+}
+```
+
+## HTML & SVG attribute markup
+
+Tea provides special HTML and SVG attributes and evaluation directives that you can attach to tags for special behaviors.
+
+<Warning>
+These features do not work inside verbatim HTML markup (`<html>…</html>`).
+</Warning>
+
+### Special attributes
+
+The `data-passage` attribute turns standard HTML elements into passage links or media sources, and `data-setter` runs a TwineScript expression when the element is activated.
+
+```html
+<!-- Passage link on <a>, <area>, and <button> -->
+<a data-passage="PassageName">Do the thing</a>
+<button data-passage="PassageName">Do the thing</button>
+
+<!-- Media sources via passage name -->
+<img data-passage="ImagePassageName">
+<audio data-passage="AudioPassageName">
+<video data-passage="VideoPassageName">
+
+<!-- Setter runs when the link is clicked -->
+<a data-passage="PassageName" data-setter="$thing to 'done'">Do the thing</a>
+```
+
+### Attribute evaluation directive
+
+The `sc-eval:` prefix (or its shorthand `@`) causes an attribute's value to be evaluated as TwineScript before the attribute is applied. The directive prefix is removed in the final HTML output.
+
+```html
+<!-- Assuming _id is "foo" -->
+<span sc-eval:id="_id">…</span>      <!-- renders as <span id="foo">…</span> -->
+<span @id="_id">…</span>             <!-- same result -->
+<span @id="'pre-' + _id + '-suf'">…</span>  <!-- renders as <span id="pre-foo-suf">…</span> -->
+```
+
+<Note>
+The evaluation directive cannot be used on `data-setter`, since that attribute already evaluates its contents on element activation.
+</Note>
+
+## Line continuation
+
+A backslash (`\`) at the start or end of a line removes the associated line break and all whitespace between the backslash and the neighboring text. This is useful for wrapping long lines in your editor without introducing unwanted whitespace in the output.
+
+```twee
+The rain in Spain falls \
+mainly on the plain.
+
+The rain in Spain falls
+\ mainly on the plain.
+
+/* Both yield: The rain in Spain falls mainly on the plain. */
+```
+
+<Warning>
+Line continuations are incompatible with the `nobr` passage tag and `Config.passages.nobr` setting, because those features process newlines differently.
+</Warning>
+
+## Headings
+
+An exclamation point (`!`) at the start of a line creates a heading. Additional exclamation points create lower-level headings, down to level 6.
+
+```twee
+!Level 1 Heading
+!!Level 2 Heading
+!!!Level 3 Heading
+!!!!Level 4 Heading
+!!!!!Level 5 Heading
+!!!!!!Level 6 Heading
+```
+
+These render as `<h1>` through `<h6>` respectively.
+
+## Style markup
+
+Tea provides inline wrappers for common text styles. Each style uses the same token to open and close it.
+
+<Warning>
+A style markup type cannot be nested within itself, since the parser uses the same token for both opening and closing.
+</Warning>
+
+| Type | Syntax | Renders as |
+|---|---|---|
+| Emphasis (italic) | `//Emphasis//` | `<em>Emphasis</em>` |
+| Strong (bold) | `''Strong''` | `<strong>Strong</strong>` |
+| Underline | `__Underline__` | `<u>Underline</u>` |
+| Strikethrough | `==Strikethrough==` | `<s>Strikethrough</s>` |
+| Superscript | `Super^^script^^` | `Super<sup>script</sup>` |
+| Subscript | `Sub~~script~~` | `Sub<sub>script</sub>` |
+
+## Lists
+
+An asterisk (`*`) at the start of a line creates an unordered list item. A number sign (`#`) creates an ordered list item.
+
+```twee
+* A list item
+* Another list item
+
+# First ordered item
+# Second ordered item
+```
+
+## Blockquote
+
+A right angle bracket (`>`) at the start of a line creates a blockquote. Additional brackets create nested blockquotes.
+
+```twee
+>Line 1
+>Line 2
+>>Nested 1
+>>Nested 2
+```
+
+## Code markup
+
+Triple curly braces wrap inline or block code. Inline usage wraps the content in `<code>`. Block usage (opening `{{{` on its own line) wraps the content in `<pre><code>`.
+
+```twee
+This is {{{inline code}}} in a sentence.
+
+{{{
+Block code line one
+Block code line two
+}}}
+```
+
+## Horizontal rule
+
+Four or more hyphens (`-`) on a line by themselves produce an `<hr>` element.
+
+```twee
+----
+```
+
+## Verbatim text
+
+The verbatim text markup disables all SugarCube and HTML processing for its contents, passing them through as plain text.
+
+| Syntax | Example |
+|---|---|
+| Triple double-quotes | `"""No //format//"""` |
+| `<nowiki>` tag | `<nowiki>No //format//</nowiki>` |
+
+Both forms output their contents exactly as written, without rendering any markup inside them.
+
+## Verbatim HTML
+
+Wrapping content in `<html>…</html>` passes its contents directly to the browser as raw HTML, bypassing all of Tea's special attribute and directive processing.
+
+<Note>
+You should virtually never need verbatim HTML markup. Use the normal passage HTML support and Tea's attribute directives instead.
+</Note>
+
+## Custom style markup
+
+The `@@` markup applies inline CSS, IDs, or class names to a span of text (inline) or a block of text (block form with a newline after the style list).
+
+<Warning>
+The custom style markup cannot be nested within itself.
+</Warning>
+
+The style list before the first `;` separator may contain any combination of:
+- A single hash-prefixed ID — e.g., `#alfa`
+- Dot-prefixed class names — e.g., `.bravo`
+- CSS properties — e.g., `color:red`
+
+<CodeGroup>
+
+```twee Inline examples
+@@#alfa;.bravo;Text@@
+/* renders as: <span id="alfa" class="bravo">Text</span> */
+
+@@color:red;Text@@
+/* renders as: <span style="color:red">Text</span> */
+```
+
+```twee Block examples
+@@#alfa;.bravo;
+Text
+@@
+/* renders as: <div id="alfa" class="bravo">Text</div> */
+
+@@color:red;
+Text
+@@
+/* renders as: <div style="color:red">Text</div> */
+```
+
+</CodeGroup>
+
+<Tip>
+As of v2.31.0, the ID and class components may be conjoined without extra semicolons: `#alfa;.bravo;.charlie;` can also be written as `#alfa.bravo.charlie;`.
+</Tip>
+
+## Template markup
+
+Templates are text-replacement patterns defined with the `Template` API. In passage text, a template is written as a question mark followed by the template name — e.g., `?He`, `?his`. When processed, the engine calls the registered function or picks a random member from the registered array.
+
+```twee
+?He was always willing to lend ?his ear to anyone.
+
+/* If ?He resolves to "She" and ?his to "her", yields: */
+She was always willing to lend her ear to anyone.
+```
+
+<Note>
+Template markup was introduced in v2.29.0. Templates are registered via the `Template` API.
+</Note>
+
+## Comments
+
+Comments are stripped from output and never shown to players.
+
+| Type | Syntax | Supported in |
+|---|---|---|
+| C-style block | `/* This is a comment. */` | Passage markup, JavaScript, stylesheets |
+| HTML block | `<!-- This is a comment. -->` | Passage markup |
+
+<Note>
+C-style block comments inside scripting contexts — such as `<<script>>` or `<<set>>` macros — are left for the JavaScript engine to handle rather than stripped by Tea's parser.
+</Note>
